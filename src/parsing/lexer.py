@@ -42,6 +42,7 @@ RESERVED_WORDS: Sequence[str] = (
     "mod",
     "div",
     "return",
+    "print",
     "t",
     "f",
 )
@@ -203,6 +204,15 @@ class Lexer:
             next_char = ""
         elif current == "≠":
             lexeme = "<>"
+            next_char = ""
+        elif current == "🡨":
+            lexeme = "🡨"
+            next_char = ""
+        elif current == "(":
+            lexeme = "("
+            next_char = ""
+        elif current == ")":
+            lexeme = ")"
             next_char = ""
         if lexeme is not None:
             advance = 2 if len(lexeme) == 2 and current in {"<", ">", ":"} else 1

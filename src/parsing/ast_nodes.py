@@ -31,12 +31,12 @@ class Program(Node):
         return [*self.class_definitions, *self.declarations, *self.procedures, *self.body]
 
 
+
 @dataclass(slots=True)
 class Declaration(Node):
     """Declaración genérica de variables."""
 
     name: str
-
 
 @dataclass(slots=True)
 class VariableDeclaration(Declaration):
@@ -92,6 +92,12 @@ class Assignment(Statement):
     def children(self) -> Sequence["Node"]:
         return [self.target, self.value]
 
+@dataclass(slots=True)
+class PrintStatement(Statement):
+    expression: "Expression"
+
+    def children(self) -> Sequence["Node"]:
+        return [self.expression]
 
 @dataclass(slots=True)
 class ForLoop(Statement):

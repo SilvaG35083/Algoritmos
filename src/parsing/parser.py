@@ -34,6 +34,11 @@ class Parser:
         self._config = config or ParserConfig()
 
     def parse(self) -> ast_nodes.Program:
+            # 🔍 Depuración: ver todos los tokens que el parser recibió
+        print("\nTOKENS RECONOCIDOS POR EL LEXER:")
+        print([ (t.kind, t.lexeme) for t in self._tokens ])
+        print()  # línea vacía para claridad
+
         """Parse the entire input and return a Program node."""
         class_definitions: List[ast_nodes.ClassDefinition] = []
         declarations: List[ast_nodes.Declaration] = []
@@ -110,17 +115,36 @@ class Parser:
                 "if": self._parse_if_statement,
                 "call": self._parse_call_statement,
                 "return": self._parse_return_statement,
+                "print": self._parse_print_statement,
             }
             handler = dispatch.get(token.lexeme)
             if handler:
                 return handler()
+        
         if token.kind in (TokenKind.IDENTIFIER,):
             return self._parse_assignment()
+            
         raise ParserError(f"No se reconoce la sentencia iniciada en {token.line}:{token.column}")
 
     # ----------------------------------------------------------------------
     # Statement parsing
     # ----------------------------------------------------------------------
+    def _parse_print_statement(self) -> ast_nodes.PrintStatement:
+        print_token = self._expect_keyword("print", "Se esperaba 'print'")
+        
+        # Permitir con o sin paréntesis
+        if self._match_symbol("("):
+            expr = self._parse_expression()
+            self._expect_symbol(")", "Falta el símbolo ')' en la llamada a print")
+        else:
+            expr = self._parse_expression()
+
+        return ast_nodes.PrintStatement(
+            line=print_token.line,
+            column=print_token.column,
+            expression=expr
+        )
+
 
     def _parse_for_loop(self) -> ast_nodes.ForLoop:
         keyword = self._consume_keyword("for")
@@ -197,7 +221,7 @@ class Parser:
 
     def _parse_assignment(self) -> ast_nodes.Assignment:
         target = self._parse_lvalue()
-        assign_token = self._expect_symbol("🡨", "Falta el símbolo '🡨' en la asignación")
+        assign_token = self._expect_symbol_any(["🡨", ":="], "Falta el símbolo '🡨' o ':=' en la asignación")
         value = self._parse_expression()
         return ast_nodes.Assignment(line=assign_token.line, column=assign_token.column, target=target, value=value)
 
@@ -387,6 +411,15 @@ class Parser:
             self._advance()
             return token
         raise ParserError(f"{message} (token actual: {token.lexeme!r}) en {token.line}:{token.column}")
+        
+    def _expect_symbol_any(self, values, message):
+        token = self._current()
+        if token.kind == TokenKind.SYMBOL and token.lexeme in values:
+            self._advance()
+            return token
+        raise ParserError(f"{message} (token actual: {token.lexeme!r}) en {token.line}:{token.column}")
+
+
 
     def _expect_identifier(self, message: str) -> Token:
         token = self._current()
