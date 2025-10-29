@@ -13,14 +13,16 @@ from .validators import ValidatorSuite
 
 @dataclass(slots=True)
 class PipelineConfig:
-    """Controls which stages are executed."""
+    """Controls which stages are executed."""  """ activa o desativa fases especificas. Decide que tan profundo analizar el code"""
 
-    enable_validations: bool = True
-    generate_detailed_report: bool = True
+    enable_validations: bool = True             #corre analisis semantico
+    generate_detailed_report: bool = True       #incluye detalles en el reporte final
 
 
 class AnalysisPipeline:
-    """Facade that exposes a simple `run` method."""
+    """Facade that exposes a simple `run` method."""    """ FACADE: ocualta toda la complejidad interna detras de una interfaz simple """
+
+# Este constructor permite **inyectar componentes personalizados** (por ejemplo, un `Reporter` que imprima en consola o uno que guarde en JSON).
 
     def __init__(
         self,

@@ -3,7 +3,9 @@ from src.parsing.parser import Parser
 def main():
     source = """
 begin
-    print("Hola Mundo")
+    x := 5
+    print(x + 2)
+    print("Resultado: " + x)
 end
 """
 
