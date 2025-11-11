@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=69.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "complexity-analyzer"
+version = "0.1.0"
+description = "Analizador de complejidades para algoritmos iterativos y recursivos en pseudocodigo estructurado."
+requires-python = ">=3.11"
+authors = [
+    {name = "Equipo Analisis y Diseno de Algoritmos"}
+]
+dependencies = [
+    "lark-parser>=0.12,<1.0",
+    "sympy>=1.12",
+    "networkx>=3.1",
+    "pydantic>=2.5",
+    "rich>=13.7",
+    "matplotlib>=3.8",
+    "fastapi>=0.110",
+    "uvicorn>=0.24",
+    "python-multipart>=0.0.9"
+]
+
+[project.optional-dependencies]
+llm = [
+    "openai>=1.0",
+    "anthropic>=0.25",
+    "google-generativeai>=0.6",
+    "httpx>=0.25"
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=4.1",
+    "mypy>=1.8",
+    "ruff>=0.1"
+]
+
+[project.urls]
+homepage = "https://example.com/complexity-analyzer"
+repository = "https://example.com/complexity-analyzer/repo"
+
+[tool.setuptools.packages.find]
+where = ["src"]
