@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Dict, Any
 
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,6 +11,7 @@ from analyzer import AnalysisPipeline
 from analyzer.samples import SampleAlgorithm
 from . import models
 from .deps import get_pipeline, get_samples
+from services.analysis_service import analyze_algorithm_flow
 
 
 def create_app() -> FastAPI:
@@ -40,23 +41,33 @@ def create_app() -> FastAPI:
             for item in samples
         ]
 
-    @app.post("/api/analyze", response_model=models.AnalyzeResponse)
+    @app.post("/api/analyze")
     def analyze_algorithm(
         payload: models.AnalyzeRequest,
-        pipeline: AnalysisPipeline = Depends(get_pipeline),
-    ) -> models.AnalyzeResponse:
+        # pipeline ya no es necesario aquí
+    ) -> Dict[str, Any]:
+        
         source = payload.source.strip()
         if not source:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El pseudocodigo no puede estar vacio.")
-        report = pipeline.run(source)
-        summary = models.ComplexitySummary(**report.summary)
-        return models.AnalyzeResponse(summary=summary, annotations=report.annotations)
+        
+        # --- USAMOS EL NUEVO SERVICIO ---
+        result = analyze_algorithm_flow(source)
+        
+        # Si el servicio reporta un error interno controlado
+        if not result.get("success"):
+             # Opcional: puedes retornar el error 400 o devolver el JSON con success:false
+             # Para debugging, devolver el JSON suele ser útil
+             pass 
 
-    @app.post("/api/analyze-file", response_model=models.AnalyzeResponse)
+        return result
+    
+    @app.post("/api/analyze-file")
     async def analyze_algorithm_file(
         file: UploadFile = File(...),
-        pipeline: AnalysisPipeline = Depends(get_pipeline),
-    ) -> models.AnalyzeResponse:
+        # pipeline ya no es necesario aquí
+    ) -> Dict[str, Any]:
+        
         raw_bytes = await file.read()
         if not raw_bytes:
             raise HTTPException(
@@ -70,17 +81,19 @@ def create_app() -> FastAPI:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No se pudo decodificar el archivo como UTF-8.",
             ) from exc
+            
         if not source:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="El archivo no contenia pseudocodigo.",
             )
-        report = pipeline.run(source)
-        summary = models.ComplexitySummary(**report.summary)
-        return models.AnalyzeResponse(summary=summary, annotations=report.annotations)
+            
+        # --- USAMOS EL NUEVO SERVICIO ---
+        result = analyze_algorithm_flow(source)
+        
+        return result
 
     return app
-
 
 app = create_app()
 

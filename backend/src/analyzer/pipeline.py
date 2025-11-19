@@ -40,6 +40,10 @@ class AnalysisPipeline:
         """Execute the full pipeline on the given pseudocode."""
         parser = Parser(source, ParserConfig())
         program = parser.parse()
+        # Depuración: imprimir el AST generado para inspección
+        print("\n--- AST GENERADO POR EL PARSER ---")
+        print(program)
+        print("--- FIN AST ---\n")
         if self._config.enable_validations:
             self._validators.validate(program)
         result = self._engine.analyze(program, raw_source=source)

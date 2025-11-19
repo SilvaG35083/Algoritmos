@@ -435,9 +435,9 @@ class Parser:
         token = self._current()
         return token.kind == TokenKind.SYMBOL and token.lexeme == value
 
-    def _check_keyword(self, value: Sequence[str]) -> bool:
+    def _check_keyword(self, values: Sequence[str]) -> bool:
         token = self._current()
-        return token.kind == TokenKind.KEYWORD and token.lexeme in value
+        return token.kind == TokenKind.KEYWORD and token.lexeme in values
 
     def _check_keywords(self, values: Sequence[str]) -> bool:
         return self._check_keyword(values)
