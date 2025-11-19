@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlgorithmCard } from "./components/AlgorithmCard.jsx";
 //import { ResultPanel } from "./components/ResultPanel.jsx";
-import { StepViewer } from "./components/StepViewer.jsx";
 import { AnalysisModal } from "./PasosAnalisis/AnalysisModal.jsx";
 import {mockAnalysisResult} from "../mockdata.js";
 import { Header } from "./components/Header.jsx";
@@ -46,16 +45,7 @@ function App() {
     setError(null);
     setLoadingAnalysis(true);
 
-    // MOCK TEMPORAL 
-    setTimeout(() => {
-       setResult(mockAnalysisResult);
-       setLoadingAnalysis(false);
-       setIsModalOpen(true);
-     }, 1000);
-     return;
-    // FIN MOCK TEMPORAL
-
-   /* try {
+   try {
       const res = await fetch(`${API_BASE}/api/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -66,12 +56,14 @@ function App() {
       }
       const data = await res.json();
       setResult(data);
+      setIsModalOpen(true)
+
     } catch (err) {
       setError(err.message);
     } finally {
       setLoadingAnalysis(false);
     }
-      */
+
   };
 
   const handleClear = () => {

@@ -7,6 +7,32 @@ export function AnalysisModal({ isOpen, onClose, result }) {
   // Si no está abierto, retornamos null (no se renderiza nada)
   if (!isOpen || !result) return null;
 
+  if (result.success === false || result.error) {
+    return (
+      <div className="modal-overlay" onClick={onClose}>
+        <div className="modal-content error-state" onClick={(e) => e.stopPropagation()}>
+           <div className="modal-header">
+              <h3 style={{color: '#ef4444'}}>Error en el Análisis</h3>
+              <button className="close-btn" onClick={onClose}>&times;</button>
+           </div>
+           <div className="modal-body">
+             <p>Ocurrió un problema al procesar el algoritmo:</p>
+             <pre style={{background: '#450a0a', color: '#fecaca', padding: '1rem', borderRadius: '8px'}}>
+               {result.error || "Error desconocido"}
+             </pre>
+           </div>
+           <div className="modal-footer">
+             <button className="btn btn-secondary" onClick={onClose}>Cerrar</button>
+           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!result.steps) {
+     return null; // O podrías mostrar un mensaje de "Datos incompletos"
+  }
+
   const stepsOrder = ["lexer", "parser", "extraction", "solution"];
   const stepKey = stepsOrder[currentStep];
   const stepData = result.steps[stepKey];
@@ -31,9 +57,9 @@ export function AnalysisModal({ isOpen, onClose, result }) {
       case "lexer":
         return (
           <div className="token-container">
-            {stepData.data.map((token, i) => (
+            {stepData.data?.map((token, i) => (
               <span key={i} className="token-badge">{token}</span>
-            ))}
+            )) || "No hay tokens disponibles"}
           </div>
         );
       case "parser":
