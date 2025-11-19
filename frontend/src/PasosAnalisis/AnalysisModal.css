@@ -1,0 +1,85 @@
+/* src/components/AnalysisModal.css */
+
+/* El fondo oscuro que cubre TODA la pantalla */
+.modal-overlay {
+  position: fixed;   /* Se fija a la ventana, no al documento */
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.75); /* Fondo negro semitransparente */
+  backdrop-filter: blur(5px); /* Efecto borroso elegante */
+  display: flex;
+  align-items: center;     /* Centrado vertical */
+  justify-content: center; /* Centrado horizontal */
+  z-index: 9999; 
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* La tarjeta del modal en sí */
+.modal-content {
+  background: #1e1e2e; /* Color de fondo de tu tema */
+  width: 90%;
+  max-width: 700px;    /* Ancho máximo para que no se vea gigante */
+  max-height: 85vh;    /* No más alto que el 85% de la pantalla */
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* Para que el contenido no se salga de los bordes */
+  position: relative;
+  animation: slideUp 0.3s ease-out;
+}
+
+/* Animaciones suaves */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* Estilos internos del contenido */
+.modal-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.modal-body {
+  padding: 2rem;
+  overflow-y: auto; /* Scroll solo si el contenido es muy largo */
+  flex: 1;
+}
+
+.modal-footer {
+  padding: 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* Tokens y Código */
+.token-container { display: flex; flex-wrap: wrap; gap: 8px; }
+.token-badge { 
+  background: #3f3f46; color: #e4e4e7; padding: 4px 8px; 
+  border-radius: 4px; font-family: monospace; font-size: 0.85rem; 
+}
+
+.step-indicators { display: flex; gap: 8px; }
+.dot { width: 10px; height: 10px; background: #52525b; border-radius: 50%; transition: 0.3s; }
+.dot.active { background: #3b82f6; transform: scale(1.2); }
+
+.close-btn {
+  background: none; border: none; color: #a1a1aa; font-size: 1.5rem; cursor: pointer;
+}
+.close-btn:hover { color: white; }

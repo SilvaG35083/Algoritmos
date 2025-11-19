@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlgorithmCard } from "./components/AlgorithmCard.jsx";
-import { ResultPanel } from "./components/ResultPanel.jsx";
+//import { ResultPanel } from "./components/ResultPanel.jsx";
+import { StepViewer } from "./components/StepViewer.jsx";
+import { AnalysisModal } from "./PasosAnalisis/AnalysisModal.jsx";
+import {mockAnalysisResult} from "../mockdata.js";
 import { Header } from "./components/Header.jsx";
 
 const API_BASE = typeof __API_BASE__ !== "undefined" ? __API_BASE__ : "http://localhost:8000";
@@ -13,6 +16,7 @@ function App() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [uploadName, setUploadName] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -41,7 +45,17 @@ function App() {
     }
     setError(null);
     setLoadingAnalysis(true);
-    try {
+
+    // MOCK TEMPORAL 
+    setTimeout(() => {
+       setResult(mockAnalysisResult);
+       setLoadingAnalysis(false);
+       setIsModalOpen(true);
+     }, 1000);
+     return;
+    // FIN MOCK TEMPORAL
+
+   /* try {
       const res = await fetch(`${API_BASE}/api/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -57,6 +71,7 @@ function App() {
     } finally {
       setLoadingAnalysis(false);
     }
+      */
   };
 
   const handleClear = () => {
@@ -158,7 +173,6 @@ function App() {
             ))}
           </div>
         </section>
-        <ResultPanel summary={result?.summary} annotations={result?.annotations} loading={loadingAnalysis} />
       </div>
 
       <section className="info-grid">
@@ -185,6 +199,22 @@ function App() {
           </p>
         </article>
       </section>
+      {/* MODAL COMPONENT  */}
+      <AnalysisModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        result={result}
+      />
+
+       <div className="grid grid--two">
+         {/* ... Samples Panel ... */}
+         
+         {/* Opcional: Panel placeholder que invite a analizar */}
+         <section className="glass-card" style={{display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+            <p className="text-muted">Los resultados aparecerán en una ventana detallada.</p>
+         </section>
+       </div>
+
     </div>
   );
 }
