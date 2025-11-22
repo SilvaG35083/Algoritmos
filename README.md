@@ -174,5 +174,3 @@ Se recomienda añadir pruebas para los nuevos algoritmos que se vayan incorporan
 - Mantén el código documentado en español (docstrings y comentarios breves cuando el contexto lo requiera).
 - Los archivos `frontend/.env` o `backend/.env` no están versionados; úsalos para variables sensibles.
 - Si agregas integraciones LLM, documenta los prompts en `backend/docs/`.
-
-¡Listo! Ahora tienes un backend modular, un API REST documentada y un frontend listo para presentar el proyecto. 💡🚀
