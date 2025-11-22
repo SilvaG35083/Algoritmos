@@ -3,7 +3,7 @@
 ## Visión general
 El sistema sigue una arquitectura cliente-servidor claramente separada:
 
-- **Backend (`backend/`)**: Implementado en Python con FastAPI. Aquí viven el lexer, parser, motor de complejidad, dataset de algoritmos y la API REST (`/api/analyze`, `/api/analyze-file`, `/api/samples`, `/api/health`). Este servicio entrega resultados estructurados para que cualquier cliente (React, scripts, LLMs) los consuma.
+- **Backend (`backend/`)**: Implementado en Python con FastAPI. Aquí viven el lexer, parser, motor de complejidad, dataset de algoritmos y la API REST (`/api/analyze`, `/api/analyze-file`, `/api/samples`, `/api/health`, `/api/llm/analyze`). Este servicio entrega resultados estructurados para que cualquier cliente (React, scripts, LLMs) los consuma.
 - **Frontend (`frontend/`)**: Aplicación React/Vite con tema oscuro/glassmorphism. Permite escribir o subir pseudocódigo, consultar ejemplos, disparar análisis y mostrar los resultados O/Ω/Θ junto con anotaciones.
 
 Ya **no existe una interfaz Tkinter dentro del backend**; toda interacción visual pasa por el frontend.
@@ -19,7 +19,7 @@ Ya **no existe una interfaz Tkinter dentro del backend**; toda interacción visu
 - `src/parsing/`: lexer, parser, AST y gramática.
 - `src/analysis/`: motor de complejidad, modelos de costo, biblioteca de patrones y resolutores de recurrencias (base).
 - `src/analyzer/`: pipeline, reporter, validators y dataset `samples.py`.
-- `src/server/`: app FastAPI (`app.py`), modelos Pydantic (`models.py`) y dependencias compartidas (`deps.py`).
+- `src/server/`: app FastAPI (`app.py`), modelos Pydantic (`models.py`), dependencias compartidas (`deps.py`) y servicio LLM (`llm_service.py`).
 - `src/llm/`: scaffolding para integrar futuros asistentes basados en modelos de lenguaje.
 
 ## Frontend
