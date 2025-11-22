@@ -1,5 +1,6 @@
 from parsing.lexer import Lexer       
-from parsing.parser import Parser     
+from parsing.parser import Parser, ParserConfig, ParserError
+from parsing.lexer import LexerError
 from analysis.recurrence_solver import RecurrenceSolver, RecurrenceRelation
 from analysis.extractor import extract_generic_recurrence
 
@@ -27,7 +28,7 @@ def analyze_algorithm_flow(source_code: str) -> dict:
 
     # --- PASO 2: PARSER ---
     try:
-        parser = Parser(source_code)
+        parser = Parser(source_code, ParserConfig())
         ast = parser.parse()        
         ast_display = str(ast) 
 
@@ -36,8 +37,10 @@ def analyze_algorithm_flow(source_code: str) -> dict:
             "description": "Árbol generado correctamente.",
             "data": ast_display
         }
-    except Exception as e:
+    except (ParserError, LexerError) as e:
         return _error_response(f"Error en Parser: {str(e)}")
+    except Exception as e:
+        return _error_response(f"Error inesperado en Parser: {str(e)}")
 
     # --- PASO 3: EXTRACCIÓN ---
     try:

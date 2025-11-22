@@ -49,3 +49,12 @@ end"""
     body = response.json()
     assert "worst_case" in body["summary"]
     assert "pattern_summary" in body["annotations"]
+
+
+def test_llm_analyze_stub() -> None:
+    payload = {"query": "Genera un algoritmo que sume un arreglo"}
+    response = client.post("/api/llm/analyze", json=payload)
+    assert response.status_code == 200
+    body = response.json()
+    assert "pseudocode" in body
+    assert "steps" in body
