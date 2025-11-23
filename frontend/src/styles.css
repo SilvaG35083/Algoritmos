@@ -234,3 +234,67 @@ body::after {
 .info-card p {
   margin: 0.4rem 0 0;
 }
+
+.llm-panel {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.llm-output {
+  margin-top: 0.75rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.llm-block {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 0.9rem 1rem;
+  background: rgba(10, 12, 18, 0.8);
+}
+
+.llm-title {
+  font-weight: 700;
+  margin-bottom: 0.35rem;
+}
+
+.llm-code {
+  background: #0b0d14;
+  color: #e5e7eb;
+  padding: 0.85rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  white-space: pre-wrap;
+  font-family: "Space Grotesk", monospace;
+}
+
+.llm-list {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.llm-step-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.llm-chip {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.85rem;
+  color: #f4f4f5;
+}
+
+.llm-line {
+  margin-top: 0.25rem;
+  font-size: 0.9rem;
+  color: #cbd5f5;
+}

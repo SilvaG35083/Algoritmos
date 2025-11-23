@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AlgorithmCard } from "./components/AlgorithmCard.jsx";
 //import { ResultPanel } from "./components/ResultPanel.jsx";
 import { AnalysisModal } from "./PasosAnalisis/AnalysisModal.jsx";
+import { ChatPanel } from "./components/ChatPanel.jsx";
 import {mockAnalysisResult} from "../mockdata.js";
 import { Header } from "./components/Header.jsx";
 
@@ -51,15 +52,28 @@ function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ source: pseudocode }),
       });
-      if (!res.ok) {
-        throw new Error("El analizador rechazo la solicitud.");
-      }
+      
       const data = await res.json();
+      
+      if (!res.ok || !data.success) {
+        // Si hay un error en la respuesta
+        const errorMsg = data.error || data.detail || "El analizador rechazó la solicitud.";
+        setError(errorMsg);
+        // También mostrar el error en el modal si es posible
+        setResult({ success: false, error: errorMsg });
+        setIsModalOpen(true);
+        return;
+      }
+      
       setResult(data);
-      setIsModalOpen(true)
+      setIsModalOpen(true);
+      setError(null);
 
     } catch (err) {
       setError(err.message);
+      // Mostrar error en el modal también
+      setResult({ success: false, error: err.message });
+      setIsModalOpen(true);
     } finally {
       setLoadingAnalysis(false);
     }
@@ -77,6 +91,7 @@ function App() {
     setError(null);
     setUploadName("");
   };
+
 
   const topSamples = useMemo(() => samples.slice(0, 6), [samples]);
 
@@ -166,6 +181,13 @@ function App() {
           </div>
         </section>
       </div>
+
+      <ChatPanel 
+        onAlgorithmGenerated={(pseudocode) => {
+          setPseudocode(pseudocode);
+          setError(null);
+        }}
+      />
 
       <section className="info-grid">
         <article className="glass-card info-card">

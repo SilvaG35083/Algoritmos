@@ -1,5 +1,6 @@
 from parsing.lexer import Lexer       
-from parsing.parser import Parser     
+from parsing.parser import Parser, ParserConfig, ParserError
+from parsing.lexer import LexerError
 from analysis.recurrence_solver import RecurrenceSolver, RecurrenceRelation
 from analysis.extractor import extract_generic_recurrence
 

@@ -11,8 +11,8 @@ class GenericASTVisitor:
     - Cantidad de llamadas recursivas -> 'a'
     """
     def __init__(self):
-        self.loop_depth = 0
-        self.max_loop_depth = 0
+        self.loop_depth = 0         #Profundidad actual de bucles
+        self.max_loop_depth = 0     #Profundidad máxima encontrada
         self.recursive_calls = 0
         
         # Heurística simple: si hay restas (n-1) o divisiones (n/2)

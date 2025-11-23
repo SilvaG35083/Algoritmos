@@ -41,9 +41,9 @@ class AnalysisPipeline:
         parser = Parser(source, ParserConfig())
         program = parser.parse()
         # Depuración: imprimir el AST generado para inspección
-        print("\n--- AST GENERADO POR EL PARSER ---")
-        print(program)
-        print("--- FIN AST ---\n")
+        #print("\n--- AST GENERADO POR EL PARSER ---")
+        #print(program)
+        #print("--- FIN AST ---\n")
         if self._config.enable_validations:
             self._validators.validate(program)
         result = self._engine.analyze(program, raw_source=source)
