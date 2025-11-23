@@ -149,7 +149,8 @@ class Parser:
     def _parse_for_loop(self) -> ast_nodes.ForLoop:
         keyword = self._consume_keyword("for")
         iterator_token = self._expect_identifier("Se esperaba el identificador de control del for")
-        self._expect_symbol("🡨", "Falta el símbolo de asignación '🡨' en el for")
+        # Aceptar tanto la flecha Unicode '🡨' como la forma ASCII ':=' para inicializar el iterador
+        self._expect_symbol_any(["🡨", ":="], "Falta el símbolo de asignación '🡨' o ':=' en el for")
         start_expr = self._parse_expression()
         self._expect_keyword("to", "Se esperaba 'to' en el for")
         stop_expr = self._parse_expression()

@@ -26,6 +26,11 @@ class RecurrenceSolution:
     upper: str
     lower: str
     justification: str
+    math_steps: list = None
+    
+    def __post_init__(self):
+        if self.math_steps is None:
+            self.math_steps = []
 
 
 class RecurrenceSolver:
@@ -48,6 +53,7 @@ class RecurrenceSolver:
     @classmethod
     def default(cls) -> "RecurrenceSolver":
         solver = cls()
+        solver.register("iterative", solve_iterative_direct)
         solver.register("master", solve_with_master_theorem)
         solver.register("substitution", solve_with_substitution)
         return solver
@@ -64,53 +70,42 @@ def solve_with_master_theorem(relation: RecurrenceRelation) -> Optional[Recurren
     epsilon = 1e-9
     
     # Preparamos los pasos para el Frontend
-    steps = [
-        {"label": "1. Identificar coeficientes", "value": f"a = {a}, b = {b}, f(n) ~ n^{d}"},
-        {"label": "2. Calcular exponente crítico", "value": f"log_{b}({a}) ≈ {round(critical_exponent, 2)}"},
-        {"label": "3. Comparar exponentes", "value": f"n^{d} (fuerza local) vs n^{round(critical_exponent, 2)} (fuerza recursiva)"}
-    ]
+    # Ya no generamos pasos detallados aquí; el servicio decide qué mostrar.
 
     # 3. Evaluación de Casos (Actualizada con steps)
     
     # CASO 1
     if d < critical_exponent - epsilon:
         n_crit = f"n^{round(critical_exponent, 2)}" if critical_exponent % 1 else f"n^{int(critical_exponent)}"
-        steps.append({"label": "4. Conclusión", "value": f"El costo de las hojas domina (Caso 1)."})
-        
         return RecurrenceSolution(
-            theta=f"Theta({n_crit})",
+            theta=f"Θ({n_crit})",
             upper=f"O({n_crit})",
-            lower=f"Omega({n_crit})",
+            lower=f"Ω({n_crit})",
             justification="Caso 1: f(n) es polinómicamente menor.",
-            math_steps=steps
+            math_steps=[]
         )
 
     # CASO 2
     elif abs(d - critical_exponent) < epsilon:
         n_crit = f"n^{int(d)}" if d % 1 == 0 else f"n^{d}"
-        steps.append({"label": "4. Conclusión", "value": f"Equilibrio de fuerzas (Caso 2). Multiplicamos por log n."})
-        
         return RecurrenceSolution(
-            theta=f"Theta({n_crit} log n)",
+            theta=f"Θ({n_crit} log n)",
             upper=f"O({n_crit} log n)",
-            lower=f"Omega({n_crit} log n)",
+            lower=f"Ω({n_crit} log n)",
             justification="Caso 2: f(n) y n^log_b(a) crecen igual.",
-            math_steps=steps
+            math_steps=[]
         )
 
     # CASO 3
     elif d > critical_exponent + epsilon:
-        steps.append({"label": "4. Conclusión", "value": f"El costo de la raíz domina (Caso 3)."})
-        
         # Check de regularidad simplificado
         if a < (b ** d):
-            steps.append({"label": "5. Condición de regularidad", "value": f"Se cumple: {a} < {b}^{d}"})
             return RecurrenceSolution(
-                theta=f"Theta(n^{d})",
+                theta=f"Θ(n^{d})",
                 upper=f"O(n^{d})",
-                lower=f"Omega(n^{d})",
+                lower=f"Ω(n^{d})",
                 justification="Caso 3: f(n) domina y es regular.",
-                math_steps=steps
+                math_steps=[]
             )
     
     return None
@@ -185,13 +180,29 @@ def _parse_master_params(recurrence: str) -> Optional[tuple[float, float, float]
 
     return a, b, d
 
+def solve_iterative_direct(relation: RecurrenceRelation) -> Optional[RecurrenceSolution]:
+    """Handle iterative (non-recursive) complexity: T(n) = f(n)."""
+    # Pattern: T(n) = <expression without T(...)>
+    if "T(" not in relation.recurrence.split("=", 1)[1]:
+        # Extract f(n) after the =
+        fn = relation.recurrence.split("=", 1)[1].strip()
+        return RecurrenceSolution(
+            theta=f"Θ({fn})",
+            upper=f"O({fn})",
+            lower=f"Ω({fn})",
+            justification=f"Algoritmo iterativo: complejidad directa {fn}.",
+            math_steps=[]
+        )
+    return None
+
 def solve_with_substitution(relation: RecurrenceRelation) -> Optional[RecurrenceSolution]:
     """Placeholder substitution solver."""
     if relation.recurrence.endswith("+ n"):
         return RecurrenceSolution(
-            theta="Theta(n)",
+            theta="Θ(n)",
             upper="O(n)",
-            lower="Omega(n)",
+            lower="Ω(n)",
             justification="Linear recurrence solved by telescoping.",
+            math_steps=[]
         )
     return None
