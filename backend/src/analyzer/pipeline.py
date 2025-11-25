@@ -85,10 +85,16 @@ class AnalysisPipeline:
                 raise
         
         # Depuración: imprimir el AST generado para inspección
+<<<<<<< HEAD
         print("\n--- AST GENERADO POR EL PARSER ---")
         print(program)
         print("--- FIN AST ---\n")
         
+=======
+        #print("\n--- AST GENERADO POR EL PARSER ---")
+        #print(program)
+        #print("--- FIN AST ---\n")
+>>>>>>> 32899c703b7254871488c21d2f4ac5648a7222df
         if self._config.enable_validations:
             self._validators.validate(program)
         

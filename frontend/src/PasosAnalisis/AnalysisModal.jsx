@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import "./AnalysisModal.css"; // <--- IMPORTANTE: Importar el CSS
+import "./AnalysisModal.css"; 
 
 export function AnalysisModal({ isOpen, onClose, result }) {
   const [currentStep, setCurrentStep] = useState(0);
@@ -12,12 +12,12 @@ export function AnalysisModal({ isOpen, onClose, result }) {
       <div className="modal-overlay" onClick={onClose}>
         <div className="modal-content error-state" onClick={(e) => e.stopPropagation()}>
            <div className="modal-header">
-              <h3 style={{color: '#ef4444'}}>Error en el Análisis</h3>
+              <h3>Error en el Análisis</h3>
               <button className="close-btn" onClick={onClose}>&times;</button>
            </div>
            <div className="modal-body">
              <p>Ocurrió un problema al procesar el algoritmo:</p>
-             <pre style={{background: '#450a0a', color: '#fecaca', padding: '1rem', borderRadius: '8px'}}>
+             <pre className="error-pre">
                {result.error || "Error desconocido"}
              </pre>
            </div>
@@ -30,12 +30,38 @@ export function AnalysisModal({ isOpen, onClose, result }) {
   }
 
   if (!result.steps) {
-     return null; // O podrías mostrar un mensaje de "Datos incompletos"
+     return null; 
   }
 
-  const stepsOrder = ["lexer", "parser", "extraction", "solution"];
+  const stepsOrder = ["lexer", "parser", "line_costs", "extraction", "solution"];
   const stepKey = stepsOrder[currentStep];
   const stepData = result.steps[stepKey];
+
+  // Reiniciar el paso al cerrar (MOVER ANTES de usar)
+  const handleClose = () => {
+      setCurrentStep(0);
+      onClose();
+  }
+
+  // Safety check: if stepData doesn't exist, skip to next step or show error
+  if (!stepData) {
+    return (
+      <div className="modal-overlay" onClick={handleClose}>
+        <div className="modal-content error-state" onClick={(e) => e.stopPropagation()}>
+           <div className="modal-header">
+              <h3>Paso no disponible</h3>
+              <button className="close-btn" onClick={handleClose}>&times;</button>
+           </div>
+           <div className="modal-body">
+             <p>El paso "{stepKey}" no está disponible en los resultados.</p>
+           </div>
+           <div className="modal-footer">
+             <button className="btn btn-secondary" onClick={handleClose}>Cerrar</button>
+           </div>
+        </div>
+      </div>
+    );
+  }
 
   // Funciones de navegación
   const handleNext = () => {
@@ -45,12 +71,6 @@ export function AnalysisModal({ isOpen, onClose, result }) {
     if (currentStep > 0) setCurrentStep((prev) => prev - 1);
   };
   
-  // Reiniciar el paso al cerrar (opcional, para que empiece en 1 siempre)
-  const handleClose = () => {
-      setCurrentStep(0);
-      onClose();
-  }
-
   // Renderizado del contenido dinámico
   const renderContent = () => {
     switch (stepKey) {
@@ -64,31 +84,104 @@ export function AnalysisModal({ isOpen, onClose, result }) {
         );
       case "parser":
         return (
-          <pre style={{ background: '#18181b', padding: '1rem', borderRadius: '8px', overflow: 'auto', fontSize: '0.9rem', color: '#a5b4fc' }}>
+          <pre>
             {stepData.data}
           </pre>
         );
+      
+      case "line_costs":
+        return (
+          <div className="line-costs-table">
+            {/* Cabecera de la tabla */}
+            <div className="line-costs-header">
+              <div className="line-costs-header-cell line-number">Nº</div>
+              <div className="line-costs-header-cell code">Código</div>
+              <div className="line-costs-header-cell cost">Costo</div>
+            </div>
+
+            {/* Filas de datos */}
+            {stepData.rows?.map((row, idx) => (
+              <div key={idx} className="line-costs-row">
+                <div className="line-costs-cell line-number">{row.line}</div>
+                <div className="line-costs-cell code">{row.code || "\u00A0"}</div>
+                <div className="line-costs-cell cost">
+                  <span className={`cost-badge ${
+                    row.cost.includes('^') ? 'polynomial' : 
+                    row.cost.includes('n') ? 'linear' : 
+                    'constant'
+                  }`}>
+                    {row.cost}
+                  </span>
+                </div>
+              </div>
+            )) || <p className="no-data-message">No hay datos de líneas disponibles.</p>}
+          </div>
+        );
+      
       case "extraction":
         return (
-          <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-            <h2 style={{ color: '#60a5fa', fontFamily: 'monospace', fontSize: '2rem' }}>{stepData.equation}</h2>
-            <p className="text-muted" style={{ marginTop: '1rem' }}>{stepData.explanation}</p>
+          <div className="extraction-content">
+            <h2 className="extraction-equation">{stepData.equation}</h2>
+            <p className="extraction-explanation">{stepData.explanation}</p>
           </div>
         );
       case "solution":
         return (
-          <div style={{ textAlign: 'center' }}>
-            <h1 style={{ color: '#4ade80', fontSize: '3.5rem', margin: '0' }}>{stepData.complexity}</h1>
-            <p style={{ marginBottom: '2rem', color: '#e4e4e7' }}>{stepData.details}</p>
+          <div className="solution-content">
             
-            {/* Desglose Matemático */}
-            <div style={{ background: 'rgba(255,255,255,0.05)', textAlign: 'left', padding: '1rem', borderRadius: '8px' }}>
-                <h4 style={{ color: '#fff', marginBottom: '0.5rem' }}>Demostración:</h4>
+            {/* --- SECCIÓN 1: TITULAR --- */}
+            <div className="solution-header">
+              <h4 className="solution-label">Clase de Complejidad</h4>
+              <h1 className="solution-main-result">{stepData.main_result || "?"}</h1>
+              
+              <span className="solution-badge">
+                {stepData.complexity_class || "Desconocida"}
+              </span>
+              
+              <p className="solution-desc">
+                "{stepData.complexity_desc || "Sin descripción disponible"}"
+              </p>
+            </div>
+
+            {/* --- SECCIÓN 2: TARJETAS DE CASOS (GRID) --- */}
+            <div className="solution-cases-grid">
+              {/* Mejor Caso */}
+              <div className="case-card best">
+                <span className="case-title">Mejor Caso (Ω)</span>
+                <strong className="case-value">{stepData.cases?.best || "?"}</strong>
+              </div>
+
+              {/* Caso Promedio (Destacado) */}
+              <div className="case-card average active">
+                <span className="case-title">Promedio (Θ)</span>
+                <strong className="case-value">{stepData.cases?.average || "?"}</strong>
+              </div>
+
+              {/* Peor Caso */}
+              <div className="case-card worst">
+                <span className="case-title">Peor Caso (O)</span>
+                <strong className="case-value">{stepData.cases?.worst || "?"}</strong>
+              </div>
+            </div>
+
+            {/* --- SECCIÓN 3: DESGLOSE MATEMÁTICO --- */}
+            <div className="solution-math">
+              <h4 className="math-title">🔍 Análisis Matemático</h4>
+              
+              <p className="solution-justification">
+                <strong>Justificación: </strong> {stepData.justification}
+              </p>
+
+              <ul className="math-steps-list">
                 {stepData.math_steps?.map((step, idx) => (
-                    <div key={idx} style={{ marginBottom: '6px', fontSize: '0.9rem', color: '#d4d4d8' }}>
-                        <strong style={{ color: '#818cf8' }}>{step.label}:</strong> {step.value}
-                    </div>
+                  <li key={idx} className="math-step-item">
+                    <span className="step-arrow">➜</span>
+                    <span>
+                      <strong className="step-label">{step.label}:</strong> {step.value}
+                    </span>
+                  </li>
                 ))}
+              </ul>
             </div>
           </div>
         );
@@ -97,26 +190,20 @@ export function AnalysisModal({ isOpen, onClose, result }) {
   };
 
   return (
-    // El overlay cubre toda la pantalla
     <div className="modal-overlay" onClick={handleClose}>
-      
-      {/* El stopPropagation evita que se cierre si das clic DENTRO de la tarjeta */}
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        
         {/* CABECERA */}
         <div className="modal-header">
           <div>
-            <small style={{ color: '#a1a1aa', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '1px' }}>
-                Paso {currentStep + 1} / 4
-            </small>
-            <h3 style={{ margin: 0, color: 'white' }}>{stepData.title}</h3>
+            <small>Paso {currentStep + 1} / {stepsOrder.length}</small>
+            <h3>{stepData.title}</h3>
           </div>
           <button className="close-btn" onClick={handleClose}>&times;</button>
         </div>
 
         {/* CUERPO */}
         <div className="modal-body">
-            <p style={{ color: '#d4d4d8', marginBottom: '1.5rem' }}>{stepData.description}</p>
+            <p>{stepData.description}</p>
             {renderContent()}
         </div>
 
@@ -139,9 +226,9 @@ export function AnalysisModal({ isOpen, onClose, result }) {
 
           <button 
             className="btn btn-primary" 
-            onClick={currentStep === 3 ? handleClose : handleNext}
+            onClick={currentStep === stepsOrder.length - 1 ? handleClose : handleNext}
           >
-            {currentStep === 3 ? "Finalizar" : "Siguiente"}
+            {currentStep === stepsOrder.length - 1 ? "Finalizar" : "Siguiente"}
           </button>
         </div>
       </div>

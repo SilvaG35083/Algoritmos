@@ -1,85 +1,491 @@
-/* src/components/AnalysisModal.css */
+/* --- Layout Principal --- */
+.solution-content {
+  padding: 0 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
 
-/* El fondo oscuro que cubre TODA la pantalla */
+/* --- Header (Resultado Principal) --- */
+.solution-header {
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+.solution-label {
+  color: #94a3b8;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 1.5px;
+  margin: 0;
+}
+
+.solution-main-result {
+  font-size: 3.5rem;
+  margin: 0.5rem 0;
+  font-weight: 800;
+  /* Gradiente de texto opcional */
+  background: linear-gradient(90deg, #4ade80, #3b82f6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  /* Fallback color si el gradiente falla */
+  color: #4ade80; 
+}
+
+.solution-badge {
+  background: #334155;
+  color: #e2e8f0;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  border: 1px solid #475569;
+  display: inline-block;
+}
+
+.solution-desc {
+  margin-top: 1rem;
+  color: #cbd5e1;
+  font-style: italic;
+  font-size: 0.95rem;
+}
+
+/* --- Grid de Casos (Mejor/Peor/Promedio) --- */
+.solution-cases-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+
+.case-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 1rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  transition: transform 0.2s ease;
+}
+
+.case-card.active {
+  background: rgba(255, 255, 255, 0.07);
+  transform: scale(1.05);
+  border-color: #3b82f6; /* Azul para el promedio */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.case-title {
+  color: #94a3b8;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.case-value {
+  font-size: 1.1rem;
+  font-weight: bold;
+}
+
+/* Colores específicos por caso */
+.case-card.best .case-value { color: #10b981; }   /* Verde */
+.case-card.average .case-value { color: #3b82f6; } /* Azul */
+.case-card.worst .case-value { color: #ef4444; }   /* Rojo */
+
+/* --- Sección Matemática (Footer) --- */
+.solution-math {
+  background: #18181b;
+  border-radius: 8px;
+  padding: 1.5rem;
+  border: 1px solid #27272a;
+}
+
+.math-title {
+  color: #fff;
+  border-bottom: 1px solid #333;
+  padding-bottom: 0.8rem;
+  margin-top: 0;
+  margin-bottom: 1rem;
+  font-size: 1rem;
+}
+
+.solution-justification {
+  color: #a1a1aa;
+  font-size: 0.9rem;
+  margin-bottom: 1.2rem;
+  line-height: 1.5;
+}
+
+.solution-justification strong {
+  color: #e2e8f0;
+}
+
+.math-steps-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.math-step-item {
+  margin-bottom: 10px;
+  font-size: 0.9rem;
+  color: #d4d4d8;
+  display: flex;
+  align-items: flex-start;
+}
+
+.step-arrow {
+  color: #6366f1; /* Índigo */
+  margin-right: 10px;
+  user-select: none;
+}
+
+.step-label {
+  color: #e2e8f0;
+  margin-right: 4px;
+}
+
+/* Overlay del modal */
 .modal-overlay {
-  position: fixed;   /* Se fija a la ventana, no al documento */
+  position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.75); /* Fondo negro semitransparente */
-  backdrop-filter: blur(5px); /* Efecto borroso elegante */
+  background: rgba(0, 0, 0, 0.75);
   display: flex;
-  align-items: center;     /* Centrado vertical */
-  justify-content: center; /* Centrado horizontal */
-  z-index: 9999; 
-  animation: fadeIn 0.3s ease-out;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
 }
 
-/* La tarjeta del modal en sí */
+/* Contenedor principal del modal */
 .modal-content {
-  background: #1e1e2e; /* Color de fondo de tu tema */
+  background: #18181b;
+  border-radius: 12px;
   width: 90%;
-  max-width: 700px;    /* Ancho máximo para que no se vea gigante */
-  max-height: 85vh;    /* No más alto que el 85% de la pantalla */
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  max-width: 800px;
+  max-height: 90vh;
   display: flex;
   flex-direction: column;
-  overflow: hidden; /* Para que el contenido no se salga de los bordes */
-  position: relative;
-  animation: slideUp 0.3s ease-out;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  border: 1px solid #27272a;
 }
 
-/* Animaciones suaves */
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+.modal-content.error-state {
+  max-width: 500px;
 }
 
-@keyframes slideUp {
-  from { transform: translateY(20px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
-}
-
-/* Estilos internos del contenido */
+/* Cabecera del modal */
 .modal-header {
-  padding: 1.5rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: rgba(255, 255, 255, 0.03);
+  padding: 1.5rem;
+  border-bottom: 1px solid #27272a;
 }
 
+.modal-header h3 {
+  margin: 0;
+  color: white;
+}
+
+.modal-header small {
+  color: #a1a1aa;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 1px;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 2rem;
+  color: #71717a;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.close-btn:hover {
+  background: #27272a;
+  color: white;
+}
+
+/* Cuerpo del modal */
 .modal-body {
-  padding: 2rem;
-  overflow-y: auto; /* Scroll solo si el contenido es muy largo */
+  padding: 1.5rem;
+  overflow-y: auto;
   flex: 1;
 }
 
+.modal-body p {
+  color: #d4d4d8;
+  margin-bottom: 1.5rem;
+}
+
+.modal-body pre {
+  background: #18181b;
+  padding: 1rem;
+  border-radius: 8px;
+  overflow: auto;
+  font-size: 0.9rem;
+  color: #a5b4fc;
+}
+
+.modal-body .error-pre {
+  background: #450a0a;
+  color: #fecaca;
+}
+
+/* Pie de página del modal */
 .modal-footer {
-  padding: 1.5rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: rgba(255, 255, 255, 0.03);
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #27272a;
+  gap: 1rem;
 }
 
-/* Tokens y Código */
-.token-container { display: flex; flex-wrap: wrap; gap: 8px; }
-.token-badge { 
-  background: #3f3f46; color: #e4e4e7; padding: 4px 8px; 
-  border-radius: 4px; font-family: monospace; font-size: 0.85rem; 
+/* Botones */
+.btn {
+  padding: 0.5rem 1.5rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
-.step-indicators { display: flex; gap: 8px; }
-.dot { width: 10px; height: 10px; background: #52525b; border-radius: 50%; transition: 0.3s; }
-.dot.active { background: #3b82f6; transform: scale(1.2); }
-
-.close-btn {
-  background: none; border: none; color: #a1a1aa; font-size: 1.5rem; cursor: pointer;
+.btn:disabled {
+  cursor: not-allowed;
 }
-.close-btn:hover { color: white; }
+
+.btn-primary {
+  background: #3b82f6;
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.btn-secondary {
+  background: #27272a;
+  color: #d4d4d8;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #3f3f46;
+}
+
+/* Indicadores de paso */
+.step-indicators {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #3f3f46;
+  transition: all 0.3s;
+}
+
+.dot.active {
+  background: #3b82f6;
+  width: 24px;
+  border-radius: 4px;
+}
+
+/* Contenedor de tokens */
+.token-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.token-badge {
+  background: #3b82f6;
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-family: monospace;
+}
+
+/* Tabla de costos por línea */
+.line-costs-table {
+  background: #1e1e1e;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #333;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.line-costs-header {
+  display: flex;
+  border-bottom: 2px solid #444;
+  font-family: monospace;
+  font-size: 0.85rem;
+  font-weight: bold;
+  background: #2a2a2a;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.line-costs-header-cell {
+  padding: 10px 12px;
+  color: #a1a1aa;
+  user-select: none;
+}
+
+.line-costs-header-cell.line-number {
+  width: 50px;
+  text-align: center;
+}
+
+.line-costs-header-cell.code {
+  flex: 1;
+  padding-left: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.line-costs-header-cell.cost {
+  min-width: 80px;
+  text-align: center;
+}
+
+.line-costs-row {
+  display: flex;
+  border-bottom: 1px solid #2d2d2d;
+  font-family: monospace;
+  font-size: 0.9rem;
+  align-items: center;
+}
+
+.line-costs-row:last-child {
+  border-bottom: none;
+}
+
+.line-costs-cell {
+  padding: 8px 12px;
+}
+
+.line-costs-cell.line-number {
+  width: 50px;
+  background: #252526;
+  color: #858585;
+  text-align: center;
+  font-weight: bold;
+  user-select: none;
+}
+
+.line-costs-cell.code {
+  flex: 1;
+  padding-left: 16px;
+  color: #d4d4d4;
+  white-space: pre;
+  font-family: "Fira Code", "Courier New", monospace;
+}
+
+.line-costs-cell.cost {
+  min-width: 80px;
+  text-align: center;
+}
+
+.cost-badge {
+  color: white;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  font-family: monospace;
+  display: inline-block;
+}
+
+.cost-badge.constant {
+  background: #0ea5e9;
+}
+
+.cost-badge.linear {
+  background: #ea580c;
+}
+
+.cost-badge.polynomial {
+  background: #dc2626;
+}
+
+.no-data-message {
+  color: #888;
+  padding: 1rem;
+  text-align: center;
+}
+
+/* Sección de extracción */
+.extraction-content {
+  text-align: center;
+  margin-top: 1rem;
+}
+
+.extraction-equation {
+  color: #60a5fa;
+  font-family: monospace;
+  font-size: 2rem;
+}
+
+.extraction-explanation {
+  margin-top: 1rem;
+  color: #a1a1aa;
+}
+
+/* Sección de solución */
+.solution-content {
+  text-align: center;
+}
+
+.solution-complexity {
+  color: #4ade80;
+  font-size: 3.5rem;
+  margin: 0;
+}
+
+.solution-details {
+  margin-bottom: 2rem;
+  color: #e4e4e7;
+}
+
+.solution-math {
+  background: rgba(255, 255, 255, 0.05);
+  text-align: left;
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.solution-math h4 {
+  color: #fff;
+  margin-bottom: 0.5rem;
+}
+
+.math-step {
+  margin-bottom: 6px;
+  font-size: 0.9rem;
+  color: #d4d4d8;
+}
+
+.math-step strong {
+  color: #818cf8;
+}
