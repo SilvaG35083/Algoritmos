@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from analysis.complexity_engine import ComplexityEngine, ComplexityResult
+from analysis.extractor import extract_generic_recurrence
 from parsing.parser import Parser, ParserConfig
 from .reporter import AnalysisReport, Reporter
 from .validators import ValidatorSuite
@@ -46,6 +47,9 @@ class AnalysisPipeline:
         #print("--- FIN AST ---\n")
         if self._config.enable_validations:
             self._validators.validate(program)
-        result = self._engine.analyze(program, raw_source=source)
+        # Usar el extractor como única fuente: nos devuelve la recurrencia y
+        # la estimación estructural (ComplexityResult). Esto unifica rutas.
+        extraction = extract_generic_recurrence(program)
+        result = extraction.structural
         report = self._reporter.build(program, result)
         return report

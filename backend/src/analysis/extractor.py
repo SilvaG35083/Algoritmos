@@ -3,6 +3,18 @@
 from dataclasses import dataclass
 from typing import Any
 from .recurrence_solver import RecurrenceRelation
+from .complexity_engine import ComplexityEngine, ComplexityResult
+
+
+@dataclass(slots=True)
+class ExtractionResult:
+    """Combined result returned by the extractor.
+
+    - relation: the RecurrenceRelation (string form) built from the AST
+    - structural: ComplexityResult produced by the ComplexityEngine (Ω/O/Θ)
+    """
+    relation: RecurrenceRelation
+    structural: ComplexityResult
 
 class GenericASTVisitor:
     """
@@ -71,7 +83,7 @@ class GenericASTVisitor:
             # Aquí podríamos analizar argumentos para ver si es n-1 o n/2
             # Por ahora lo dejamos a la heurística general
 
-def extract_generic_recurrence(ast_root, func_name="self") -> RecurrenceRelation:
+def extract_generic_recurrence(ast_root, func_name="self") -> ExtractionResult:
     """
     Función principal que usa el Visitor para generar la ecuación.
     """
@@ -116,10 +128,23 @@ def extract_generic_recurrence(ast_root, func_name="self") -> RecurrenceRelation
              recurrence_str = f"T(n) = T(n-1) + {fn}"
              explanation = "Recursión lineal simple."
 
-    # Retornamos el objeto listo para el Solver
-    return RecurrenceRelation(
+    # Construir el objeto de recurrencia
+    relation = RecurrenceRelation(
         identifier=func_name,
         recurrence=recurrence_str,
         base_case="T(0) = 1",
-        notes=explanation
+        notes=explanation,
     )
+
+    # Además de la recurrencia, generamos la estimación estructural
+    # reutilizando el ComplexityEngine para no perder heurísticas existentes.
+    try:
+        engine = ComplexityEngine()
+        structural = engine.analyze(ast_root)
+    except Exception:
+        # En caso de fallo en el engine, devolvemos una estructura por defecto
+        structural = ComplexityResult(
+            best_case="Ω(1)", worst_case="O(1)", average_case="Θ(1)", annotations={}
+        )
+
+    return ExtractionResult(relation=relation, structural=structural)

@@ -102,7 +102,8 @@ def analyze_algorithm_flow(source_code: str) -> dict:
         print("📍 PASO 3: EXTRACCIÓN (Modelado Matemático)")
         print("🔹" * 30)
 
-        relation = extract_generic_recurrence(ast)
+        extraction = extract_generic_recurrence(ast)
+        relation = extraction.relation
 
         response_steps["extraction"] = {
             "title": "Modelado Matemático",
@@ -111,11 +112,23 @@ def analyze_algorithm_flow(source_code: str) -> dict:
             "explanation": relation.notes
         }
 
+        # Añadimos también la estimación estructural producida internamente
+        response_steps["structural_engine"] = {
+            "title": "Estimación Estructural (ComplexityEngine)",
+            "description": "Estimación basada en análisis estructural del AST.",
+            "best_case": extraction.structural.best_case,
+            "worst_case": extraction.structural.worst_case,
+            "average_case": extraction.structural.average_case,
+            "annotations": extraction.structural.annotations,
+        }
+
         # LOGS
         print(f"✅ Relación de Recurrencia Detectada: {relation.recurrence}")
         print(f"🔍 Detalles del objeto Relation: {relation}")
         print("📦 JSON PARA FRONTEND (Extraction):")
         print(json.dumps(response_steps["extraction"], indent=2, ensure_ascii=False))
+        print("📦 JSON PARA FRONTEND (Structural):")
+        print(json.dumps(response_steps["structural_engine"], indent=2, ensure_ascii=False))
 
     except Exception as e:
         return _error_response(f"Error en Extracción: {str(e)}")
