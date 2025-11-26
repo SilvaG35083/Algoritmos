@@ -47,6 +47,21 @@ class Parser:
         while self._match_keyword("class"):
             class_definitions.append(self._parse_class_definition(self._previous_token()))
 
+        # Permitir definiciones de subrutinas en toplevel con la forma:
+        # nombre_subrutina(param1, param2)
+        # begin
+        #   ...
+        # end
+        while True:
+            # Si el token actual es IDENTIFIER y el siguiente token es '(',
+            # lo tratamos como la cabecera de una subrutina.
+            tok = self._current()
+            next_tok = self._peek(1)
+            if tok.kind == TokenKind.IDENTIFIER and next_tok.kind == TokenKind.SYMBOL and next_tok.lexeme == "(":
+                procedures.append(self._parse_procedure())
+                continue
+            break
+
         self._expect_keyword("begin", "Se esperaba 'begin' al iniciar el programa")
         body = self._parse_statement_block(end_keywords=("end",))
         end_token = self._expect_keyword("end", "Se esperaba 'end' para cerrar el programa")
@@ -98,6 +113,22 @@ class Parser:
             attributes.append(attr_token.lexeme)
         self._expect_symbol("}", "Falta '}' para cerrar la definición de clase")
         return ast_nodes.ClassDefinition(line=keyword.line, column=keyword.column, name=name_token.lexeme, attributes=attributes)
+
+    def _parse_procedure(self) -> ast_nodes.Procedure:
+        name_token = self._expect_identifier("Se esperaba el nombre de la subrutina")
+        # Lista de parámetros entre paréntesis
+        self._expect_symbol("(", "Falta '(' tras el nombre de la subrutina")
+        parameters: List[ast_nodes.Parameter] = []
+        if not self._check_symbol(")"):
+            param_token = self._expect_identifier("Se esperaba nombre de parámetro en la subrutina")
+            parameters.append(ast_nodes.Parameter(line=param_token.line, column=param_token.column, name=param_token.lexeme))
+            while self._match_symbol(","):
+                param_token = self._expect_identifier("Se esperaba nombre de parámetro en la subrutina")
+                parameters.append(ast_nodes.Parameter(line=param_token.line, column=param_token.column, name=param_token.lexeme))
+        self._expect_symbol(")", "Falta ')' al cerrar la lista de parámetros")
+        # Cuerpo obligatorio usando begin...end
+        body = self._parse_mandatory_block()
+        return ast_nodes.Procedure(line=name_token.line, column=name_token.column, name=name_token.lexeme, parameters=parameters, body=body)
 
     def _parse_statement_block(self, end_keywords: Sequence[str]) -> List[ast_nodes.Statement]:
         statements: List[ast_nodes.Statement] = []
@@ -428,6 +459,14 @@ class Parser:
             self._advance()
             return token
         raise ParserError(f"{message} en {token.line}:{token.column}")
+
+    def _peek(self, offset: int) -> Token:
+        idx = self._index + offset
+        if idx < 0:
+            idx = 0
+        if idx >= len(self._tokens):
+            return self._tokens[-1]
+        return self._tokens[idx]
 
     def _check(self, kind: TokenKind) -> bool:
         return self._current().kind == kind
