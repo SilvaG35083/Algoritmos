@@ -2,10 +2,12 @@
 
 from .ast_nodes import (
     ArrayAccess,
+    ArrayCreation,
     ArrayDeclaration,
     Assignment,
     BinaryOperation,
     BooleanLiteral,
+    CallExpression,
     CallStatement,
     ClassDefinition,
     FieldAccess,
@@ -30,14 +32,16 @@ from .ast_nodes import (
     WhileLoop,
 )
 from .lexer import Lexer, Token, TokenKind
-from .parser import Parser, ParserConfig, parse_program
+from .parser import Parser, ParserConfig, ParserError, parse_program
 
 __all__ = [
     "ArrayAccess",
+    "ArrayCreation",
     "ArrayDeclaration",
     "Assignment",
     "BinaryOperation",
     "BooleanLiteral",
+    "CallExpression",
     "CallStatement",
     "ClassDefinition",
     "FieldAccess",
@@ -53,6 +57,7 @@ __all__ = [
     "Parameter",
     "Parser",
     "ParserConfig",
+    "ParserError",
     "Procedure",
     "Program",
     "RangeExpression",

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import math
 import re
-from typing import Callable, Dict, Optional
+from typing import Callable, Dict, List, Optional
 
 
 @dataclass(slots=True)
@@ -26,6 +26,8 @@ class RecurrenceSolution:
     upper: str
     lower: str
     justification: str
+    math_steps: List[Dict[str, str]] = field(default_factory=list)
+    cases: Dict[str, str] = field(default_factory=dict)  # best, worst, average
 
 
 class RecurrenceSolver:
@@ -59,7 +61,10 @@ def solve_with_master_theorem(relation: RecurrenceRelation) -> Optional[Recurren
     if not params: return None
     a, b, d = params
     
-    # 2. Cálculos
+    # 2. Detectar si es QuickSort (T(n) = 2T(n/2) + n o similar)
+    is_quicksort = (a == 2 and b == 2 and d == 1.0) or "quicksort" in relation.identifier.lower()
+    
+    # 3. Cálculos
     critical_exponent = math.log(a, b)
     epsilon = 1e-9
     
@@ -70,33 +75,65 @@ def solve_with_master_theorem(relation: RecurrenceRelation) -> Optional[Recurren
         {"label": "3. Comparar exponentes", "value": f"n^{d} (fuerza local) vs n^{round(critical_exponent, 2)} (fuerza recursiva)"}
     ]
 
-    # 3. Evaluación de Casos (Actualizada con steps)
+    # 4. Evaluación de Casos - ESPECIAL PARA QUICKSORT
+    if is_quicksort:
+        steps.append({"label": "4. Algoritmo detectado", "value": "QuickSort - análisis de mejor/peor/promedio caso"})
+        steps.append({"label": "5. Mejor caso", "value": "Partición balanceada: T(n) = 2T(n/2) + n → Θ(n log n)"})
+        steps.append({"label": "6. Peor caso", "value": "Partición desbalanceada: T(n) = T(n-1) + n → Θ(n²)"})
+        steps.append({"label": "7. Caso promedio", "value": "Análisis probabilístico: en promedio la partición es balanceada → Θ(n log n)"})
+        
+        return RecurrenceSolution(
+            theta="Theta(n log n)",
+            upper="O(n²)",
+            lower="Omega(n log n)",
+            justification="QuickSort: mejor/promedio Θ(n log n), peor O(n²) cuando la partición es desbalanceada.",
+            math_steps=steps,
+            cases={
+                "best": "Ω(n log n)",
+                "average": "Θ(n log n)",
+                "worst": "O(n²)"
+            }
+        )
+
+    # 5. Evaluación de Casos (Teorema Maestro estándar)
     
     # CASO 1
     if d < critical_exponent - epsilon:
         n_crit = f"n^{round(critical_exponent, 2)}" if critical_exponent % 1 else f"n^{int(critical_exponent)}"
         steps.append({"label": "4. Conclusión", "value": f"El costo de las hojas domina (Caso 1)."})
         
-        return RecurrenceSolution(
+        result = RecurrenceSolution(
             theta=f"Theta({n_crit})",
             upper=f"O({n_crit})",
             lower=f"Omega({n_crit})",
             justification="Caso 1: f(n) es polinómicamente menor.",
-            math_steps=steps
+            math_steps=steps,
+            cases={
+                "best": f"Ω({n_crit})",
+                "average": f"Θ({n_crit})",
+                "worst": f"O({n_crit})"
+            }
         )
+        return result
 
     # CASO 2
     elif abs(d - critical_exponent) < epsilon:
         n_crit = f"n^{int(d)}" if d % 1 == 0 else f"n^{d}"
         steps.append({"label": "4. Conclusión", "value": f"Equilibrio de fuerzas (Caso 2). Multiplicamos por log n."})
         
-        return RecurrenceSolution(
+        result = RecurrenceSolution(
             theta=f"Theta({n_crit} log n)",
             upper=f"O({n_crit} log n)",
             lower=f"Omega({n_crit} log n)",
             justification="Caso 2: f(n) y n^log_b(a) crecen igual.",
-            math_steps=steps
+            math_steps=steps,
+            cases={
+                "best": f"Ω({n_crit} log n)",
+                "average": f"Θ({n_crit} log n)",
+                "worst": f"O({n_crit} log n)"
+            }
         )
+        return result
 
     # CASO 3
     elif d > critical_exponent + epsilon:
@@ -105,13 +142,19 @@ def solve_with_master_theorem(relation: RecurrenceRelation) -> Optional[Recurren
         # Check de regularidad simplificado
         if a < (b ** d):
             steps.append({"label": "5. Condición de regularidad", "value": f"Se cumple: {a} < {b}^{d}"})
-            return RecurrenceSolution(
+            result = RecurrenceSolution(
                 theta=f"Theta(n^{d})",
                 upper=f"O(n^{d})",
                 lower=f"Omega(n^{d})",
                 justification="Caso 3: f(n) domina y es regular.",
-                math_steps=steps
+                math_steps=steps,
+                cases={
+                    "best": f"Ω(n^{d})",
+                    "average": f"Θ(n^{d})",
+                    "worst": f"O(n^{d})"
+                }
             )
+            return result
     
     return None
 
@@ -193,5 +236,14 @@ def solve_with_substitution(relation: RecurrenceRelation) -> Optional[Recurrence
             upper="O(n)",
             lower="Omega(n)",
             justification="Linear recurrence solved by telescoping.",
+            math_steps=[
+                {"label": "1. Método", "value": "Sustitución iterativa"},
+                {"label": "2. Resultado", "value": "T(n) = O(n)"},
+            ],
+            cases={
+                "best": "Ω(n)",
+                "average": "Θ(n)",
+                "worst": "O(n)"
+            }
         )
     return None

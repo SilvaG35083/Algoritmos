@@ -141,26 +141,33 @@ Responde en formato JSON con:
     def _default_grammar_rules(self) -> str:
         """Retorna las reglas gramaticales por defecto."""
         return """
-REGLAS DE GRAMÁTICA DEL PSEUDOCÓDIGO:
+REGLAS DE GRAMÁTICA DEL PSEUDOCÓDIGO (OBLIGATORIAS):
 
 1. Estructura básica:
+   - Opcional: "Algoritmo NombreAlgoritmo" antes de begin
    - Todo programa debe comenzar con "begin" y terminar con "end"
    - Los bloques de código se delimitan con "begin" y "end"
+   - Ejemplo: Algoritmo QUICKSORT begin ... end
 
 2. Asignaciones:
-   - Usa el símbolo 🡨 para asignaciones (ej: x 🡨 5)
-   - No uses = para asignaciones
+   - OBLIGATORIO: Usa el símbolo 🡨 (o ↨) para asignaciones
+   - Ejemplo: x 🡨 5 o x ↨ 5
+   - NO uses = para asignaciones
 
 3. Bucles:
    - FOR: for i 🡨 1 to n do begin ... end
-   - WHILE: while condición do begin ... end
-   - REPEAT: repeat ... until condición
+   - WHILE: while (condición) do begin ... end (paréntesis opcionales pero recomendados)
+   - REPEAT: repeat ... until (condición)
 
 4. Condicionales:
-   - IF: if condición then begin ... end [else begin ... end]
+   - IF: if (condición) then begin ... end [else begin ... end]
+   - Los paréntesis en la condición son opcionales pero recomendados
+   - Ejemplo: if p < r then begin ... end
 
-5. Llamadas a procedimientos:
-   - CALL nombre_procedimiento(argumentos)
+5. Procedimientos/Subrutinas:
+   - Definición: NOMBRE_PROCEDIMIENTO(param1, param2) begin ... end
+   - Llamada: CALL NOMBRE_PROCEDIMIENTO(arg1, arg2)
+   - Los procedimientos se definen antes del algoritmo principal
 
 6. Retorno:
    - return expresión
@@ -177,4 +184,17 @@ REGLAS DE GRAMÁTICA DEL PSEUDOCÓDIGO:
 9. Identificadores:
    - Deben comenzar con letra
    - Pueden contener letras, números y guiones bajos
+
+10. Arreglos:
+    - Acceso: A[i]
+    - Rango: A[1..j]
+    - Tamaño: length(A)
+    - Creación: memo 🡨 new Array(n+1) o memo 🡨 new Array[n+1]
+
+11. Operadores de comparación:
+    - Puedes usar <= o ≤ (ambos funcionan)
+    - Puedes usar >= o ≥ (ambos funcionan)
+    - Puedes usar <> o ≠ (ambos funcionan)
+
+IMPORTANTE: SIEMPRE usa 🡨 o ↨ para asignaciones, NUNCA uses =.
 """

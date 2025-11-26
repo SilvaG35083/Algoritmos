@@ -22,7 +22,8 @@ def load_samples() -> List[SampleAlgorithm]:
             name="Busqueda Lineal",
             category="Iterativo",
             description="Recorre el arreglo completo para encontrar un elemento.",
-            pseudocode="""begin
+            pseudocode="""Algoritmo BUSQUEDA_LINEAL
+begin
     i 🡨 1
     while (i <= n) do
     begin
@@ -40,7 +41,8 @@ end""",
             name="Suma de Prefijos",
             category="Iterativo",
             description="Calcula sumas parciales con un for simple.",
-            pseudocode="""begin
+            pseudocode="""Algoritmo SUMA_PREFIJOS
+begin
     suma 🡨 0
     for i 🡨 1 to n do
     begin
@@ -72,27 +74,37 @@ end""",
             name="QuickSort Basico",
             category="Recursivo",
             description="Divide y venceras con particionamiento en dos subproblemas.",
-            pseudocode="""begin
-    if (low < high) then
+            pseudocode="""Algoritmo QUICKSORT(A, p, r)
+begin
+    if (p < r) then
     begin
-        pivot 🡨 A[high]
-        i 🡨 low - 1
-        for j 🡨 low to high - 1 do
-        begin
-            if (A[j] <= pivot) then
-            begin
-                i 🡨 i + 1
-                temp 🡨 A[i]
-                A[i] 🡨 A[j]
-                A[j] 🡨 temp
-            end
-        end
-        temp 🡨 A[i + 1]
-        A[i + 1] 🡨 A[high]
-        A[high] 🡨 temp
-        CALL self(A, low, i)
-        CALL self(A, i + 2, high)
+        q 🡨 CALL PARTITION(A, p, r)
+        CALL QUICKSORT(A, p, q - 1)
+        CALL QUICKSORT(A, q + 1, r)
     end
+end
+
+PARTITION(A, p, r)
+begin
+    x 🡨 A[r]
+    i 🡨 p - 1
+    for j 🡨 p to r - 1 do
+    begin
+        if (A[j] <= x) then
+        begin
+            i 🡨 i + 1
+            CALL INTERCAMBIAR(A, i, j)
+        end
+    end
+    CALL INTERCAMBIAR(A, i + 1, r)
+    return i + 1
+end
+
+INTERCAMBIAR(A, i, j)
+begin
+    temp 🡨 A[i]
+    A[i] 🡨 A[j]
+    A[j] 🡨 temp
 end""",
             expected_complexity="O(n log n)",
         ),
@@ -100,15 +112,16 @@ end""",
             name="MergeSort",
             category="Recursivo",
             description="Divide el arreglo en mitades y las mezcla ordenadamente.",
-            pseudocode="""begin
+            pseudocode="""Algoritmo MERGESORT(A)
+begin
     if (length(A) <= 1) then
     begin
         return
     end
     mid 🡨 length(A) div 2
-    CALL self(A[1..mid])
-    CALL self(A[mid+1..length(A)])
-    CALL merge(A, mid)
+    CALL MERGESORT(A[1..mid])
+    CALL MERGESORT(A[mid+1..length(A)])
+    CALL MERGE(A, mid)
 end""",
             expected_complexity="O(n log n)",
         ),
@@ -160,14 +173,15 @@ end""",
             name="Fibonacci Recursivo",
             category="Recursivo",
             description="Definicion recursiva directa del n-esimo Fibonacci.",
-            pseudocode="""begin
+            pseudocode="""Algoritmo FIBONACCI(n)
+begin
     if (n <= 1) then
     begin
         return n
     end
     else
     begin
-        return CALL self(n - 1) + CALL self(n - 2)
+        return CALL FIBONACCI(n - 1) + CALL FIBONACCI(n - 2)
     end
 end""",
             expected_complexity="O(2^n)",
@@ -189,17 +203,19 @@ end""",
             name="Dijkstra Simplificado",
             category="Grafos",
             description="Explora un grafo usando cola de prioridad.",
-            pseudocode="""begin
-    inicializarDistancias()
-    while (cola no esta vacia) do
+            pseudocode="""Algoritmo DIJKSTRA(G, fuente)
+begin
+    CALL INICIALIZAR_DISTANCIAS(G, fuente)
+    while (not CALL COLA_VACIA()) do
     begin
-        u 🡨 extraerMin(cola)
-        for cada v en Adyacentes(u) do
+        u 🡨 CALL EXTRAER_MIN()
+        for i 🡨 1 to GRADO[u] do
         begin
-            if (dist[u] + peso(u, v) < dist[v]) then
+            v 🡨 CALL ADYACENTE(u, i)
+            if (dist[u] + CALL PESO(u, v) < dist[v]) then
             begin
-                dist[v] 🡨 dist[u] + peso(u, v)
-                actualizar(cola, v)
+                dist[v] 🡨 dist[u] + CALL PESO(u, v)
+                CALL ACTUALIZAR_COLA(v)
             end
         end
     end
@@ -210,17 +226,18 @@ end""",
             name="Multiplicacion de Strassen",
             category="Divide y venceras",
             description="Ejemplo de algoritmo avanzado para matrices.",
-            pseudocode="""begin
+            pseudocode="""Algoritmo STRASSEN(A, B, n)
+begin
     if (n = 1) then
     begin
         return A[1,1] * B[1,1]
     end
-    dividirMatrices()
-    CALL self(A11, B11)
-    CALL self(A22, B22)
-    CALL self(A11, B22)
-    CALL self(A22, B11)
-    combinarResultados()
+    CALL DIVIDIR_MATRICES(A, B)
+    CALL STRASSEN(A11, B11, n / 2)
+    CALL STRASSEN(A22, B22, n / 2)
+    CALL STRASSEN(A11, B22, n / 2)
+    CALL STRASSEN(A22, B11, n / 2)
+    CALL COMBINAR_RESULTADOS()
 end""",
             expected_complexity="O(n^log7)",
         ),

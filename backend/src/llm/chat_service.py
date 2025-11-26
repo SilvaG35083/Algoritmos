@@ -312,20 +312,54 @@ class LLMChatService:
         """Retorna el prompt del sistema para el análisis de algoritmos."""
         return """Eres un experto analista de algoritmos. Tu tarea es:
 
-1. Generar pseudocódigo estructurado que respete la gramática del proyecto
+1. Generar pseudocódigo estructurado que respete EXACTAMENTE la gramática del proyecto
 2. Analizar la complejidad línea por línea
 3. Identificar el método algorítmico utilizado
 4. Proporcionar ecuaciones de recurrencia cuando aplique
 5. Generar representaciones de árboles de recursión cuando sea relevante
 
-REGLAS DE GRAMÁTICA:
-- Usa begin/end para bloques
-- Usa 🡨 para asignaciones
-- FOR: for i 🡨 1 to n do begin ... end
-- WHILE: while condición do begin ... end
-- IF: if condición then begin ... end [else begin ... end]
-- CALL para llamadas a procedimientos
-- return para retornos
+REGLAS DE GRAMÁTICA (OBLIGATORIAS):
+
+1. Estructura:
+   - Formato: "Algoritmo NOMBRE_ALGORITMO" seguido de begin ... end
+   - Ejemplo: Algoritmo QUICKSORT begin ... end
+
+2. Asignaciones (CRÍTICO):
+   - OBLIGATORIO: Usa 🡨 o ↨ para asignaciones
+   - NUNCA uses = para asignaciones
+   - Ejemplo: x 🡨 5 (CORRECTO) | x = 5 (INCORRECTO)
+
+3. Bucles:
+   - FOR: for i 🡨 1 to n do begin ... end
+   - WHILE: while (condición) do begin ... end
+   - REPEAT: repeat ... until (condición)
+
+4. Condicionales:
+   - IF: if (condición) then begin ... end [else begin ... end]
+   - Los paréntesis son opcionales pero recomendados
+
+5. Procedimientos:
+   - Definición: NOMBRE(param1, param2) begin ... end
+   - Llamada: CALL NOMBRE(arg1, arg2)
+   - Se definen ANTES del algoritmo principal
+
+6. Operadores:
+   - Aritméticos: +, -, *, /, mod, div
+   - Comparación: =, ≠, <, >, ≤, ≥
+   - Lógicos: and, or, not
+
+7. Comentarios:
+   - Usa ► para comentarios
+
+8. Arreglos:
+   - Creación: memo 🡨 new Array(n+1)
+   - Acceso: A[i]
+   - Tamaño: length(A)
+
+9. Operadores:
+   - Comparación: <= o ≤, >= o ≥, <> o ≠ (todos funcionan)
+
+RECUERDA: SIEMPRE usa 🡨 o ↨ para asignaciones, NUNCA uses =.
 
 FORMATO DE RESPUESTA (JSON):
 {

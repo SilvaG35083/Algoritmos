@@ -22,6 +22,7 @@ class Node:
 class Program(Node):
     """Programa principal con cuerpo y definiciones auxiliares."""
 
+    name: str = ""  # Nombre del algoritmo (opcional)
     class_definitions: List["ClassDefinition"] = field(default_factory=list)
     declarations: List["Declaration"] = field(default_factory=list)
     procedures: List["Procedure"] = field(default_factory=list)
@@ -231,12 +232,30 @@ class LengthCall(Expression):
 
 
 @dataclass(slots=True)
+class CallExpression(Expression):
+    name: str
+    arguments: List["Expression"] = field(default_factory=list)
+
+    def children(self) -> Sequence["Node"]:
+        return list(self.arguments)
+
+
+@dataclass(slots=True)
 class RangeExpression(Expression):
     start: Expression
     end: Expression
 
     def children(self) -> Sequence["Node"]:
         return [self.start, self.end]
+
+
+@dataclass(slots=True)
+class ArrayCreation(Expression):
+    """Expresión para creación de arreglos: new Array(tamaño)."""
+    size: Expression
+
+    def children(self) -> Sequence["Node"]:
+        return [self.size]
 
 
 AstNode = Node

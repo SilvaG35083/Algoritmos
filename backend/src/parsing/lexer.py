@@ -21,6 +21,8 @@ class TokenKind(Enum):
 
 
 RESERVED_WORDS: Sequence[str] = (
+    "algoritmo",
+    "procedimiento",
     "begin",
     "end",
     "for",
@@ -45,6 +47,8 @@ RESERVED_WORDS: Sequence[str] = (
     "print",
     "t",
     "f",
+    "new",
+    "array",
 )
 
 
@@ -90,6 +94,11 @@ class Lexer:
             current = self._source[idx]
             if current in " \t\r":
                 idx, column = self._consume_whitespace(idx, column)
+                continue
+            if current == "∞":
+                yield Token(TokenKind.IDENTIFIER, "infinito", line, column)
+                idx += 1
+                column += 1
                 continue
             if current == "\n":
                 line += 1
@@ -197,16 +206,19 @@ class Lexer:
         elif current == ":" and next_char == "=":
             lexeme = ":="
         elif current == "≤":
-            lexeme = "<="
+            lexeme = "≤"  # Mantener el símbolo original
             next_char = ""
         elif current == "≥":
-            lexeme = ">="
+            lexeme = "≥"  # Mantener el símbolo original
             next_char = ""
         elif current == "≠":
             lexeme = "<>"
             next_char = ""
         elif current == "🡨":
             lexeme = "🡨"
+            next_char = ""
+        elif current == "↨":
+            lexeme = "🡨"  # Normalizar ↨ a 🡨
             next_char = ""
         elif current == "(":
             lexeme = "("

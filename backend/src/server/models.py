@@ -91,6 +91,7 @@ class LLMChatResponse(BaseModel):
     complexity_analysis: Optional[ComplexityAnalysis] = None
     tokens_used: Optional[int] = None
     latency_ms: Optional[float] = None
+    model_used: Optional[str] = None  # Información del modelo usado
 
 
 class ChatMessage(BaseModel):

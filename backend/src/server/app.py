@@ -259,6 +259,14 @@ def create_app() -> FastAPI:
                     summary_parts.append(f"Método: {result['method']}")
                 summary = " | ".join(summary_parts)
             
+            # Obtener el proveedor/modelo usado
+            provider = payload.provider or "openai"
+            model_info = f"Modelo: {provider.upper()}"
+            if provider == "openai":
+                model_info += " (GPT-4 o GPT-3.5-turbo)"
+            elif provider == "gemini":
+                model_info += " (Gemini Pro)"
+            
             return models.LLMChatResponse(
                 pseudocode=result.get("pseudocode", "").strip(),
                 summary=summary,
@@ -270,6 +278,7 @@ def create_app() -> FastAPI:
                 complexity_analysis=complexity_analysis,
                 tokens_used=result.get("tokens_used"),
                 latency_ms=result.get("latency_ms"),
+                model_used=model_info,  # Agregar información del modelo
             )
         except Exception as exc:
             # Log del error completo para debugging
