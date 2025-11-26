@@ -21,12 +21,18 @@ class LineCostAnalyzer:
     - Conditions (if/while): O(n^depth) attributed to the line with the condition
     - Loop headers: shown as O(1); body statements reflect multiplicative depth
     - Nested loops increase depth multiplicatively (degree += 1 per loop)
+    - Binary search style loops are treated as logarítmicos (factor log n)
     """
 
     def analyze(self, program: ast_nodes.Program, source: str) -> List[Dict[str, Any]]:
         self._ctx = _Ctx(depth=0)
         self._entries: Dict[int, ComplexityMeasure] = {}
+        # Visitar primero el cuerpo principal del programa
         self._visit_block(program.body)
+
+        # Además, recorrer los cuerpos de todas las subrutinas definidas
+        for proc in program.procedures:
+            self._visit_block(proc.body)
 
         lines = source.splitlines()
         results: List[Dict[str, Any]] = []
@@ -81,7 +87,12 @@ class LineCostAnalyzer:
         if isinstance(node, ast_nodes.WhileLoop):
             # Attribute condition cost to condition line
             self._record(node.line, degree_inc=0)
-            if self._is_log_while(node):
+
+            is_binary = self._is_binary_search_while(node)
+            is_log = self._is_log_while(node)
+
+            # Para búsqueda binaria o whiles logarítmicos, usamos solo log_depth
+            if is_binary or is_log:
                 self._ctx.log_depth += 1
                 self._visit(node.condition)
                 self._visit_block(node.body)
@@ -186,3 +197,70 @@ class LineCostAnalyzer:
                 if self._body_reduces_var_by_factor(st.body, var_name):
                     return True
         return False
+
+    def _is_binary_search_while(self, node: ast_nodes.WhileLoop) -> bool:
+        """Detecta heurísticamente un while de búsqueda binaria.
+
+        Patrón aproximado que buscamos:
+        - Condición combina variables que representan un rango (ej. inicio, fin)
+          con una comparación (<=, <, >=, >) y algún flag de encontrado.
+        - Dentro del cuerpo se calcula un "medio" como (inicio + fin) / 2 ó div 2.
+        - Luego se actualizan inicio o fin usando medio ± 1.
+
+        No intentamos ser perfectos; si encontramos el patrón, tratamos el bucle
+        como logarítmico en el análisis por línea.
+        """
+        # 1. Necesitamos poder hallar identificadores para los extremos e índice medio
+        # Buscamos asignaciones del tipo: medio := (inicio + fin) div 2
+        if not isinstance(node.body, list):
+            return False
+
+        medio_name: str | None = None
+        lower_name: str | None = None
+        upper_name: str | None = None
+
+        for st in node.body:
+            if isinstance(st, ast_nodes.Assignment):
+                # medio := (inicio + fin) op 2
+                if isinstance(st.target, ast_nodes.Identifier) and isinstance(st.value, ast_nodes.BinaryOperation):
+                    # (inicio + fin) div 2   ó   (inicio + fin) / 2
+                    val = st.value
+                    if val.operator in {"div", "/"} and isinstance(val.left, ast_nodes.BinaryOperation):
+                        sum_expr = val.left
+                        if sum_expr.operator == "+" and isinstance(sum_expr.left, ast_nodes.Identifier) and isinstance(sum_expr.right, ast_nodes.Identifier):
+                            if isinstance(val.right, ast_nodes.Number) and val.right.value == 2:
+                                medio_name = st.target.name
+                                lower_name = sum_expr.left.name
+                                upper_name = sum_expr.right.name
+                                break
+
+        if not (medio_name and lower_name and upper_name):
+            return False
+
+        # 2. Verificar que en el cuerpo se actualizan los extremos usando medio ± 1
+        def updates_bounds(statements: list[ast_nodes.Statement]) -> bool:
+            saw_update_lower = False
+            saw_update_upper = False
+            for st in statements:
+                if isinstance(st, ast_nodes.Assignment):
+                    if isinstance(st.target, ast_nodes.Identifier):
+                        # fin := medio - 1
+                        if st.target.name == upper_name and isinstance(st.value, ast_nodes.BinaryOperation):
+                            v = st.value
+                            if v.operator == "-" and isinstance(v.left, ast_nodes.Identifier) and v.left.name == medio_name:
+                                saw_update_upper = True
+                        # inicio := medio + 1
+                        if st.target.name == lower_name and isinstance(st.value, ast_nodes.BinaryOperation):
+                            v = st.value
+                            if v.operator == "+" and isinstance(v.left, ast_nodes.Identifier) and v.left.name == medio_name:
+                                saw_update_lower = True
+                elif isinstance(st, ast_nodes.IfStatement):
+                    if updates_bounds(st.then_branch):
+                        saw_update_lower = True or saw_update_lower
+                        saw_update_upper = True or saw_update_upper
+                    if updates_bounds(st.else_branch):
+                        saw_update_lower = True or saw_update_lower
+                        saw_update_upper = True or saw_update_upper
+            return saw_update_lower and saw_update_upper
+
+        return updates_bounds(node.body)

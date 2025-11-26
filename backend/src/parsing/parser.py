@@ -47,6 +47,32 @@ class Parser:
         while self._match_keyword("class"):
             class_definitions.append(self._parse_class_definition(self._previous_token()))
 
+        # Permitir definiciones de subrutinas en toplevel antes del bloque principal
+        while True:
+            token = self._current()
+            # Si vemos un identificador seguido de '(' lo interpretamos como
+            # la definición de una subrutina: `name(params) begin ... end`
+            if token.kind == TokenKind.IDENTIFIER:
+                next_index = self._index + 1
+                if next_index < len(self._tokens):
+                    next_token = self._tokens[next_index]
+                    if next_token.kind == TokenKind.SYMBOL and next_token.lexeme == "(":
+                        procedures.append(self._parse_procedure())
+                        continue
+            break
+
+        # Si el archivo contiene solo subrutinas (sin un programa begin..end),
+        # devolvemos el Programa con las subrutinas y cuerpo vacío.
+        if self._check(TokenKind.EOF) and procedures:
+            return ast_nodes.Program(
+                line=1,
+                column=1,
+                class_definitions=class_definitions,
+                declarations=declarations,
+                procedures=procedures,
+                body=[],
+            )
+
         # Permitir definiciones de subrutinas en toplevel con la forma:
         # nombre_subrutina(param1, param2)
         # begin
@@ -120,11 +146,38 @@ class Parser:
         self._expect_symbol("(", "Falta '(' tras el nombre de la subrutina")
         parameters: List[ast_nodes.Parameter] = []
         if not self._check_symbol(")"):
-            param_token = self._expect_identifier("Se esperaba nombre de parámetro en la subrutina")
-            parameters.append(ast_nodes.Parameter(line=param_token.line, column=param_token.column, name=param_token.lexeme))
+            # Cada parámetro puede ser un identificador, opcionalmente seguido
+            # de una anotación de arreglo como `A[n]` o un rango `A[n]..[m]`.
+            def _read_parameter() -> ast_nodes.Parameter:
+                token = self._expect_identifier("Se esperaba nombre de parámetro en la subrutina")
+                datatype: str | None = None
+                # Soportar anotación de arreglo entre corchetes, ej. A[n] o A[n]..[m]
+                if self._match_symbol("["):
+                    parts: List[str] = ["["]
+                    # recoger lexemas hasta ']' (no intentamos re-parsing de expresiones aquí)
+                    while not self._check_symbol("]") and not self._check(TokenKind.EOF):
+                        parts.append(self._current().lexeme)
+                        self._advance()
+                    self._expect_symbol("]", "Falta ']' en anotación de parámetro")
+                    parts.append("]")
+                    # Soportar '..' seguido de otra anotación entre corchetes
+                    if self._match_symbol(".."):
+                        parts.append("..")
+                        if self._match_symbol("["):
+                            while not self._check_symbol("]") and not self._check(TokenKind.EOF):
+                                parts.append(self._current().lexeme)
+                                self._advance()
+                            self._expect_symbol("]", "Falta ']' en anotación de parámetro")
+                            parts.append("]")
+                        else:
+                            # Dejar que el mensaje de error estándar aparezca
+                            raise ParserError("Falta '[' después de '..' en anotación de parámetro")
+                    datatype = "".join(parts)
+                return ast_nodes.Parameter(line=token.line, column=token.column, name=token.lexeme, datatype=datatype)
+
+            parameters.append(_read_parameter())
             while self._match_symbol(","):
-                param_token = self._expect_identifier("Se esperaba nombre de parámetro en la subrutina")
-                parameters.append(ast_nodes.Parameter(line=param_token.line, column=param_token.column, name=param_token.lexeme))
+                parameters.append(_read_parameter())
         self._expect_symbol(")", "Falta ')' al cerrar la lista de parámetros")
         # Cuerpo obligatorio usando begin...end
         body = self._parse_mandatory_block()
