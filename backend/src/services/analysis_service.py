@@ -133,61 +133,77 @@ def analyze_algorithm_flow(source_code: str) -> dict:
     except Exception as e:
         return _error_response(f"Error en Extracción: {str(e)}")
 
-    # --- PASO 4: SOLVER ---
+    # --- PASO 4: ANÁLISIS FINAL (Structural vs Solver) ---
     try:
 
         print("\n" + "🔸" * 30)
-        print("📍 PASO 4: SOLVER (Resolución de Complejidad)")
+        print("📍 PASO 4: ANÁLISIS FINAL (Priorizar Structural sobre Solver)")
         print("🔸" * 30)
 
-        solver = RecurrenceSolver.default()
-        solution = solver.solve(relation)
-
-        if solution:
-            # 1. Obtenemos la info "humana" usando la función de arriba
-            info = _get_complexity_details(solution.theta)
-
-            # 2. Construimos el objeto EXACTO que espera el Frontend nuevo
-            response_steps["solution"] = {
-                "title": "Análisis de Complejidad",
-                
-                # --- Datos nuevos para el Header y Badge ---
-                "main_result": solution.theta,       # Antes era 'complexity'
-                "complexity_class": info["name"],    # Ej: "Lineal"
-                "complexity_desc": info["desc"],     # Ej: "El tiempo crece..."
-
-                # --- Datos agrupados para las Cards (Grid) ---
-                "cases": {
-                    "best": solution.lower,   # Omega
-                    "worst": solution.upper,  # O
-                    "average": solution.theta # Theta
-                },
-
-                # --- Datos para la sección inferior ---
-                "justification": solution.justification,
-                "math_steps": solution.math_steps or []
-            }
-            
-            # Logs de depuración
-            print(f"✅ Solución: {solution.theta} ({info['name']})")
-            print(json.dumps(response_steps["solution"], indent=2, ensure_ascii=False))
-
+        # Para algoritmos iterativos con llamadas en bucles, Structural es más preciso
+        # Solo usar Solver para algoritmos puramente recursivos
+        structural = extraction.structural
+        
+        # Determinar si debemos usar Structural (iterativo complejo) o Solver (recursivo)
+        use_structural = (
+            "calls_in_loops" in structural.annotations or  # Hay llamadas en bucles
+            "n^2" in structural.average_case or            # Complejidad cuadrática o mayor
+            "n^3" in structural.average_case or
+            "log n" in structural.average_case             # Complejidad logarítmica
+        )
+        
+        if use_structural:
+            print("✅ Usando análisis Structural (iterativo con llamadas anidadas)")
+            main_result = structural.average_case
+            best_case = structural.best_case
+            worst_case = structural.worst_case
+            justification = structural.annotations.get("calls_in_loops_max_called", 
+                                                       structural.annotations.get("loop_summary", 
+                                                       "Análisis estructural basado en profundidad de bucles."))
+            math_steps = []
         else:
-            # Caso de fallo: enviamos estructura vacía pero compatible para no romper el UI
-            response_steps["solution"] = {
-                "title": "No resuelto",
-                "main_result": "?",
-                "complexity_class": "Desconocida",
-                "complexity_desc": "No se pudo determinar un patrón estándar.",
-                "cases": { "best": "?", "worst": "?", "average": "?" },
-                "justification": "Intenta simplificar la estructura del algoritmo.",
-                "math_steps": []
-            }
-            print("⚠️ No se pudo resolver la recurrencia.")
+            print("✅ Usando Solver (recursión o caso simple)")
+            solver = RecurrenceSolver.default()
+            solution = solver.solve(relation)
+            
+            if solution:
+                main_result = solution.theta
+                best_case = solution.lower
+                worst_case = solution.upper
+                justification = solution.justification
+                math_steps = solution.math_steps or []
+            else:
+                # Fallback a structural si solver falla
+                print("⚠️ Solver falló, usando Structural como fallback")
+                main_result = structural.average_case
+                best_case = structural.best_case
+                worst_case = structural.worst_case
+                justification = "No se pudo resolver la recurrencia. Usando análisis estructural."
+                math_steps = []
+        
+        # Obtener detalles legibles
+        info = _get_complexity_details(main_result)
+        
+        response_steps["solution"] = {
+            "title": "Análisis de Complejidad",
+            "main_result": main_result,
+            "complexity_class": info["name"],
+            "complexity_desc": info["desc"],
+            "cases": {
+                "best": best_case,
+                "worst": worst_case,
+                "average": main_result
+            },
+            "justification": justification,
+            "math_steps": math_steps
+        }
+        
+        print(f"✅ Resultado Final: {main_result} ({info['name']})")
+        print(json.dumps(response_steps["solution"], indent=2, ensure_ascii=False))
 
     except Exception as e:
-        print(f"❌ Error en Solver: {e}")
-        return _error_response(f"Error resolviendo ecuación: {str(e)}")
+        print(f"❌ Error en Análisis Final: {e}")
+        return _error_response(f"Error en análisis final: {str(e)}")
 
     print("\n" + "="*80)
     print("✅ ANÁLISIS COMPLETADO EXITOSAMENTE")

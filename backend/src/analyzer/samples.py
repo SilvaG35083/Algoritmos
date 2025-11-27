@@ -37,14 +37,49 @@ end""",
             expected_complexity="O(n)",
         ),
         SampleAlgorithm(
-            name="Suma de Prefijos",
+            name="Algoritmo de ordenamiento por inserción",
             category="Iterativo",
-            description="Calcula sumas parciales con un for simple.",
-            pseudocode="""begin
-    suma 🡨 0
-    for i 🡨 1 to n do
+            description="Busca la ubicación correcta del segundo elemento con respecto a los elementos que los preceden",
+            pseudocode="""Insertar(temporal[n], valor, tam)
+begin
+    if (tam = 0) then
     begin
-        suma 🡨 suma + A[i]
+        temporal[0] ← valor
+    end
+    else
+    begin
+        x ← 0
+        while (temporal[x] < valor and x < tam) do
+        begin
+            x ← x + 1
+        end
+
+        ► IMPORTANTE: El algoritmo original hace un for decremental (y--).
+        ► usamos WHILE para simular el retroceso.
+        y ← tam
+        while (y > x) do
+        begin
+            temporal[y] ← temporal[y - 1]
+            y ← y - 1
+        end
+
+        temporal[x] ← valor
+    end
+end
+
+ordenar3(arreglo[n], n)
+begin
+
+    temporal[n] 🡨 0
+
+    for x 🡨 0 to n - 1 do
+    begin
+        CALL Insertar(temporal, arreglo[x], x)
+    end
+
+    for x 🡨 0 to n - 1 do
+    begin
+        arreglo[x] ← temporal[x]
     end
 end""",
             expected_complexity="O(n)",
@@ -133,27 +168,33 @@ end""",
             name="Busqueda Binaria",
             category="Recursivo/Iterativo",
             description="Divide el espacio de busqueda a la mitad cada vez.",
-            pseudocode="""begin
-    low 🡨 1
-    high 🡨 n
-    while (low <= high) do
+            pseudocode="""busquedaBinaria(A[n], valor)      
+begin
+    inicio ← 0
+    fin ← n - 1
+    encontro ← 0
+    while (inicio ≤ fin and encontro = 0) do
     begin
-        mid 🡨 (low + high) div 2
-        if (A[mid] = objetivo) then
+        medio ← (inicio + fin) div 2
+        if (A[medio] = valor) then
         begin
-            return mid
-        end
-        else if (A[mid] < objetivo) then
-        begin
-            low 🡨 mid + 1
+            encontro ← 1
         end
         else
         begin
-            high 🡨 mid - 1
+            if (A[medio] > valor) then
+            begin
+                fin ← medio - 1
+            end
+            else
+            begin
+                inicio ← medio + 1
+            end
         end
     end
-    return -1
-end""",
+    return encontro
+end
+""",
             expected_complexity="O(log n)",
         ),
         SampleAlgorithm(

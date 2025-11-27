@@ -77,7 +77,7 @@ class GenericASTVisitor:
         self.loop_depth -= 1 # Al salir, restamos
 
     def visit_WhileLoop(self, node, current_func_name):
-        """Distingue entre bucles lineales y logarítmicos."""
+        """Distingue entre bucles lineales, logarítmicos y de desplazamiento."""
         if self._is_binary_search_while(node) or self._is_log_while(node):
             self.has_log_loop = True
             self.log_depth += 1
@@ -85,6 +85,10 @@ class GenericASTVisitor:
                 self.max_log_depth = self.log_depth
             self.generic_visit(node, current_func_name)
             self.log_depth -= 1
+        elif self._is_array_shift_while(node):
+            # Bucles de desplazamiento: no incrementan profundidad, son operaciones auxiliares
+            # Se consideran parte del costo lineal del algoritmo padre
+            self.generic_visit(node, current_func_name)
         else:
             self.visit_ForLoop(node, current_func_name)
 
@@ -111,6 +115,33 @@ class GenericASTVisitor:
         if not var:
             return False
         return self._body_reduces_var_by_factor(node.body, var)
+    
+    def _is_array_shift_while(self, node):
+        """Detecta bucles de desplazamiento de arreglo (patrón: arr[i] ← arr[i-1], i--)"""
+        var = self._extract_loop_variable(node.condition)
+        if not var:
+            return False
+        # Buscar asignación de arreglo con índice decremental
+        for st in node.body:
+            if isinstance(st, ast_nodes.Assignment):
+                # arr[i] ← arr[i-1] o similar
+                if isinstance(st.target, ast_nodes.ArrayAccess) and isinstance(st.value, ast_nodes.ArrayAccess):
+                    # Verificar que el índice se decrementa
+                    if self._body_decrements_variable(node.body, var):
+                        return True
+        return False
+    
+    def _body_decrements_variable(self, statements, var_name: str) -> bool:
+        """Verifica si el cuerpo decrementa una variable (i ← i - 1)"""
+        for st in statements:
+            if isinstance(st, ast_nodes.Assignment):
+                if isinstance(st.target, ast_nodes.Identifier) and st.target.name == var_name:
+                    val = st.value
+                    if isinstance(val, ast_nodes.BinaryOperation):
+                        if isinstance(val.left, ast_nodes.Identifier) and val.left.name == var_name:
+                            if val.operator == "-" and isinstance(val.right, ast_nodes.Number):
+                                return True
+        return False
 
     def _extract_loop_variable(self, expr):
         if expr is None:
@@ -239,18 +270,30 @@ def extract_generic_recurrence(ast_root, func_name="self") -> ExtractionResult:
     explanation = ""
 
     if a == 0:
-        # Iterativo
-        recurrence_str = f"T(n) = {fn}"
-        if poly_degree == 0 and log_power == 0:
-            explanation = "Algoritmo iterativo sin bucles relevantes."
-        elif poly_degree > 0 and log_power == 0:
-            explanation = f"Algoritmo iterativo con anidamiento {poly_degree}."
-        elif poly_degree == 0 and log_power > 0:
-            explanation = "Algoritmo iterativo logarítmico (p. ej. búsqueda binaria)."
+        # Iterativo - verificar si hay llamadas en bucles para ajustar f(n)
+        effective_fn = fn
+        if visitor.calls_in_loops:
+            # Previsualización: si hay llamadas en bucles, el costo real será mayor
+            # (lo calculamos más adelante en detalle, pero aquí damos una pista)
+            explanation_parts = [f"Algoritmo iterativo con anidamiento {poly_degree}"]
+            if poly_degree > 0:
+                explanation_parts.append(f"que invoca subrutinas dentro de bucles")
+                # Indicar que el costo real será la combinación
+                effective_fn = fn + " × f_subrutina(n)"
+            explanation = ". ".join(explanation_parts) + "."
         else:
-            explanation = (
-                f"Algoritmo iterativo con anidamiento {poly_degree} y factor log^{log_power}."
-            )
+            if poly_degree == 0 and log_power == 0:
+                explanation = "Algoritmo iterativo sin bucles relevantes."
+            elif poly_degree > 0 and log_power == 0:
+                explanation = f"Algoritmo iterativo con anidamiento {poly_degree}."
+            elif poly_degree == 0 and log_power > 0:
+                explanation = "Algoritmo iterativo logarítmico (p. ej. búsqueda binaria)."
+            else:
+                explanation = (
+                    f"Algoritmo iterativo con anidamiento {poly_degree} y factor log^{log_power}."
+                )
+        
+        recurrence_str = f"T(n) = {effective_fn}"
     else:
         # Recursivo
         # HEURÍSTICA:
@@ -290,15 +333,17 @@ def extract_generic_recurrence(ast_root, func_name="self") -> ExtractionResult:
             best_case="Ω(1)", worst_case="O(1)", average_case="Θ(1)", annotations={}
         )
 
+    # ESTRATEGIA: Solo enriquecer las anotaciones, NO sobrescribir las complejidades del motor
+    # El ComplexityEngine ya hace un análisis sofisticado (salidas tempranas, branches, etc.)
+    # El visitor solo aporta información adicional sobre bucles logarítmicos
+    
     expr = _format_growth(poly_degree, log_power)
     if expr != "1":
         structural.annotations = dict(structural.annotations)
         structural.annotations["loop_summary"] = (
             f"Bucles polinomiales: {poly_degree}, bucles logarítmicos: {log_power}."
         )
-        structural.best_case = f"Ω({expr})"
-        structural.worst_case = f"O({expr})"
-        structural.average_case = f"Θ({expr})"
+        # NO sobrescribir best/worst/average - dejar que el motor decida
 
     # Si hay llamadas a funciones dentro de bucles, calcular la complejidad
     # de las funciones llamadas y ajustar la estimación estructural.
@@ -361,14 +406,46 @@ def extract_generic_recurrence(ast_root, func_name="self") -> ExtractionResult:
                 inner = _format_growth(deg, logp)
                 return f"Θ({inner})"
 
+            # Buscar el mejor caso más optimista entre las funciones llamadas
+            best_deg = combined_deg
+            best_log = combined_log
+            for callee in visitor.calls_in_loops.keys():
+                struct = func_structures.get(callee) or func_structures.get(callee.lower())
+                if struct:
+                    b_deg, b_log = parse_theta(struct.best_case)
+                    # El mejor caso puede ser menor si la función tiene salida temprana
+                    if b_deg < best_deg or (b_deg == best_deg and b_log < best_log):
+                        best_deg = visitor.max_loop_depth + b_deg
+                        best_log = visitor.max_log_depth + b_log
+
             structural.annotations = dict(structural.annotations)
             structural.annotations["calls_in_loops_max_called"] = (
                 "Max llamada: "
                 + _format_growth(max_deg, max_log)
                 + f", combinada con bucles propios (deg={visitor.max_loop_depth}, log={visitor.max_log_depth})"
             )
-            structural.average_case = format_theta(combined_deg, combined_log)
-            structural.best_case = f"Ω({_format_growth(combined_deg, combined_log)})"
-            structural.worst_case = f"O({_format_growth(combined_deg, combined_log)})"
+            
+            # SOLO sobrescribir si la complejidad combinada es MAYOR que la del motor
+            # Esto respeta casos especiales detectados por el motor (salidas tempranas, etc.)
+            current_avg_deg, current_avg_log = parse_theta(structural.average_case)
+            if combined_deg > current_avg_deg or (combined_deg == current_avg_deg and combined_log > current_avg_log):
+                structural.average_case = format_theta(combined_deg, combined_log)
+                structural.worst_case = f"O({_format_growth(combined_deg, combined_log)})"
+            
+            # Para mejor caso: solo actualizar si la nueva complejidad es diferente y mayor que constante
+            current_best_deg, current_best_log = parse_theta(structural.best_case)
+            if best_deg > 0 or best_log > 0:
+                # Solo actualizar si no es salida temprana (Ω(1))
+                if current_best_deg > 0 or current_best_log > 0:
+                    structural.best_case = f"Ω({_format_growth(best_deg, best_log)})"
+            
+            # Refinar la recurrencia para reflejar el costo real combinado
+            combined_expr = _format_growth(combined_deg, combined_log)
+            relation = RecurrenceRelation(
+                identifier=func_name,
+                recurrence=f"T(n) = {combined_expr}",
+                base_case="T(0) = 1",
+                notes=f"Algoritmo iterativo con llamadas anidadas. {structural.annotations['calls_in_loops_max_called']}",
+            )
 
     return ExtractionResult(relation=relation, structural=structural)
