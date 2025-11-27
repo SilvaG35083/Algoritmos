@@ -14,7 +14,6 @@ class SampleAlgorithm:
     pseudocode: str
     expected_complexity: str
 
-
 def load_samples() -> List[SampleAlgorithm]:
     """Devuelve al menos diez algoritmos representativos."""
     return [
@@ -82,7 +81,7 @@ begin
         arreglo[x] ← temporal[x]
     end
 end""",
-            expected_complexity="O(n)",
+            expected_complexity="O(n^2)",
         ),
         SampleAlgorithm(
             name="Producto de Matrices",
@@ -104,32 +103,57 @@ end""",
             expected_complexity="O(n^3)",
         ),
         SampleAlgorithm(
-            name="QuickSort Basico",
+            name="QuickSort",
             category="Recursivo",
-            description="Divide y venceras con particionamiento en dos subproblemas.",
-            pseudocode="""begin
-    if (low < high) then
+            description="Divide y conquistarás con particionamiento en dos subproblemas.",
+            pseudocode="""Particion(A[n], p, r)
     begin
-        pivot 🡨 A[high]
-        i 🡨 low - 1
-        for j 🡨 low to high - 1 do
+        pivote 🡨 A[p]
+        i 🡨 p
+        j 🡨 r
+        
+        while (i < j) do
         begin
-            if (A[j] <= pivot) then
+            while (A[i] <= pivote and i <= r) do
             begin
                 i 🡨 i + 1
+            end
+            
+            while (A[j] > pivote and j >= p) do
+            begin
+                j 🡨 j - 1
+            end
+            
+            if (i < j) then
+            begin
                 temp 🡨 A[i]
                 A[i] 🡨 A[j]
                 A[j] 🡨 temp
             end
         end
-        temp 🡨 A[i + 1]
-        A[i + 1] 🡨 A[high]
-        A[high] 🡨 temp
-        CALL self(A, low, i)
-        CALL self(A, i + 2, high)
+        
+        temp 🡨 A[p]
+        A[p] 🡨 A[j]
+        A[j] 🡨 temp
+        
+        return j
     end
-end""",
-            expected_complexity="O(n log n)",
+
+    QuickSort(A[n], p, r)
+    begin
+        if (p < r) then
+        begin
+            q 🡨 p
+            CALL Particion(A, p, r)
+            
+            izq 🡨 q - 1
+            CALL QuickSort(A, p, izq)
+            
+            der 🡨 q + 1
+            CALL QuickSort(A, der, r)
+        end
+    end""",
+            expected_complexity="O(n^2)",
         ),
         SampleAlgorithm(
             name="MergeSort",

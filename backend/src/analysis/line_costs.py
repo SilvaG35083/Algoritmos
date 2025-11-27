@@ -69,8 +69,81 @@ class LineCostAnalyzer:
             self._entries[line] = base
 
     def _visit_block(self, statements: List[ast_nodes.Statement]) -> None:
-        for stmt in statements:
-            self._visit(stmt)
+        """Visita un bloque de statements detectando si hay bucles secuenciales.
+        
+        Bucles secuenciales (uno tras otro en el mismo nivel) NO deben incrementar
+        la profundidad total, ya que no están anidados.
+        """
+        # Identificar grupos de bucles consecutivos en el mismo nivel
+        i = 0
+        while i < len(statements):
+            stmt = statements[i]
+            
+            # Si es un bucle, verificar si hay más bucles consecutivos
+            if isinstance(stmt, (ast_nodes.ForLoop, ast_nodes.WhileLoop, ast_nodes.RepeatUntilLoop)):
+                # Contar cuántos bucles consecutivos hay
+                consecutive_loops = [stmt]
+                j = i + 1
+                while j < len(statements) and isinstance(statements[j], (ast_nodes.ForLoop, ast_nodes.WhileLoop, ast_nodes.RepeatUntilLoop)):
+                    consecutive_loops.append(statements[j])
+                    j += 1
+                
+                # Si hay más de un bucle consecutivo, son secuenciales
+                if len(consecutive_loops) > 1:
+                    # Incrementar profundidad UNA sola vez para todos los bucles secuenciales
+                    self._ctx.depth += 1
+                    max_depth_before = self._ctx.depth
+                    
+                    for loop in consecutive_loops:
+                        # Visitar cada bucle SIN incrementar depth adicional
+                        # (el depth ya está incrementado arriba)
+                        self._visit_loop_body_only(loop)
+                    
+                    self._ctx.depth -= 1
+                    i = j  # Saltar los bucles ya procesados
+                else:
+                    # Un solo bucle, visitar normalmente
+                    self._visit(stmt)
+                    i += 1
+            else:
+                # No es un bucle, visitar normalmente
+                self._visit(stmt)
+                i += 1
+    
+    def _visit_loop_body_only(self, node: ast_nodes.Node) -> None:
+        """Visita el cuerpo de un bucle sin incrementar profundidad adicional."""
+        if isinstance(node, ast_nodes.ForLoop):
+            self._record(node.line, degree_inc=0)
+            self._visit(node.start)
+            self._visit(node.stop)
+            self._visit_block(node.body)
+        elif isinstance(node, ast_nodes.WhileLoop):
+            self._record(node.line, degree_inc=0)
+            is_binary = self._is_binary_search_while(node)
+            is_log = self._is_log_while(node)
+            
+            if is_binary:
+                saved_depth = self._ctx.depth
+                self._ctx.depth = 0
+                self._ctx.log_depth += 1
+                self._visit(node.condition)
+                self._visit_block(node.body)
+                self._ctx.log_depth -= 1
+                self._ctx.depth = saved_depth
+            elif is_log:
+                self._ctx.log_depth += 1
+                self._visit(node.condition)
+                self._visit_block(node.body)
+                self._ctx.log_depth -= 1
+            else:
+                # NO incrementar depth aquí, ya está incrementado en _visit_block
+                self._visit(node.condition)
+                self._visit_block(node.body)
+        elif isinstance(node, ast_nodes.RepeatUntilLoop):
+            self._record(node.line, degree_inc=0)
+            self._visit_block(node.body)
+            if node.condition:
+                self._visit(node.condition)
 
     def _visit(self, node: ast_nodes.Node | None) -> None:
         if node is None:

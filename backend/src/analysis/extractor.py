@@ -60,10 +60,46 @@ class GenericASTVisitor:
             if hasattr(node, field):
                 val = getattr(node, field)
                 if isinstance(val, list):
-                    for item in val:
-                        self.visit(item, current_func_name)
+                    # Detectar bucles secuenciales en listas (body, etc)
+                    self._visit_statement_list(val, current_func_name)
                 else:
                     self.visit(val, current_func_name)
+    
+    def _visit_statement_list(self, statements, current_func_name):
+        """Visita una lista de statements, detectando bucles secuenciales."""
+        i = 0
+        while i < len(statements):
+            stmt = statements[i]
+            
+            # Detectar múltiples bucles consecutivos (secuenciales, no anidados)
+            if isinstance(stmt, (ast_nodes.ForLoop, ast_nodes.WhileLoop, ast_nodes.RepeatUntilLoop)):
+                consecutive_loops = [stmt]
+                j = i + 1
+                while j < len(statements) and isinstance(statements[j], (ast_nodes.ForLoop, ast_nodes.WhileLoop, ast_nodes.RepeatUntilLoop)):
+                    consecutive_loops.append(statements[j])
+                    j += 1
+                
+                # Si hay múltiples bucles consecutivos, son secuenciales
+                if len(consecutive_loops) > 1:
+                    # Incrementar profundidad UNA vez para todos
+                    self.loop_depth += 1
+                    if self.loop_depth > self.max_loop_depth:
+                        self.max_loop_depth = self.loop_depth
+                    
+                    # Visitar el cuerpo de cada bucle secuencial
+                    for loop in consecutive_loops:
+                        if hasattr(loop, 'body'):
+                            self._visit_statement_list(loop.body, current_func_name)
+                    
+                    self.loop_depth -= 1
+                    i = j
+                else:
+                    # Un solo bucle, visitar normalmente
+                    self.visit(stmt, current_func_name)
+                    i += 1
+            else:
+                self.visit(stmt, current_func_name)
+                i += 1
 
     def visit_ForLoop(self, node, current_func_name):
         """Al entrar a un bucle, sumamos profundidad"""
@@ -93,7 +129,7 @@ class GenericASTVisitor:
             self.visit_ForLoop(node, current_func_name)
 
     def visit_CallStatement(self, node, current_func_name):
-        """Detecta si llamamos a la misma función (Recursión)"""
+        """Detecta si llamamos a la misma función (Recursión) y analiza tipo de reducción."""
         # Asumimos que node.name tiene el nombre de la función llamada
         # En tu AST vi que usas 'self' para recursión a veces
         callee = getattr(node, 'name', '')
@@ -103,12 +139,45 @@ class GenericASTVisitor:
             # Si la llamada ocurre dentro de un bucle, lo registramos
             if self.loop_depth > 0:
                 self.recursive_calls_in_loop += 1
-            # Aquí podríamos analizar argumentos para ver si es n-1 o n/2
-            # Por ahora lo dejamos a la heurística general
+            
+            # Analizar argumentos para determinar tipo de recursión
+            reduction_type = self._analyze_recursive_call_arguments(node)
+            if reduction_type and self.recursion_type == "unknown":
+                self.recursion_type = reduction_type
+        
         # Registrar cualquier llamada (no solo recursiva) que ocurra dentro de un bucle
         if self.loop_depth > 0 and callee:
             key = callee.lower()
             self.calls_in_loops[key] = self.calls_in_loops.get(key, 0) + 1
+    
+    def _analyze_recursive_call_arguments(self, call_node) -> str:
+        """Analiza los argumentos de una llamada recursiva para determinar el tipo de reducción.
+        
+        Retorna:
+        - 'linear': n-1, n-k (reducción lineal)
+        - 'divide': n/2, n div 2 (divide y conquista)
+        - 'unknown': no se pudo determinar
+        """
+        if not hasattr(call_node, 'arguments') or not call_node.arguments:
+            return "unknown"
+        
+        for arg in call_node.arguments:
+            # Buscar patrones de reducción
+            if isinstance(arg, ast_nodes.BinaryOperation):
+                # n - constante (ej: n-1)
+                if arg.operator == "-" and isinstance(arg.right, ast_nodes.Number):
+                    return "linear"
+                
+                # n / constante o n div constante
+                if arg.operator in {"/", "div"}:
+                    if isinstance(arg.right, ast_nodes.Number) and arg.right.value >= 2:
+                        return "divide"
+                    
+                    # (low+high)/2 o similar - patrón de búsqueda binaria
+                    if isinstance(arg.left, ast_nodes.BinaryOperation) and arg.left.operator == "+":
+                        return "divide"
+        
+        return "unknown"
 
     def _is_log_while(self, node):
         var = self._extract_loop_variable(node.condition)
@@ -244,11 +313,39 @@ class GenericASTVisitor:
 def extract_generic_recurrence(ast_root, func_name="self") -> ExtractionResult:
     """
     Función principal que usa el Visitor para generar la ecuación.
+    Analiza el procedimiento recursivo principal, ignorando subrutinas auxiliares.
     """
-    visitor = GenericASTVisitor()
-    visitor.visit(ast_root, func_name)
+    # Si es un Program con procedimientos, encontrar el recursivo principal
+    main_proc = None
+    if hasattr(ast_root, 'procedures') and ast_root.procedures:
+        # Buscar el procedimiento que hace llamadas recursivas
+        for proc in ast_root.procedures:
+            # Contar llamadas recursivas en este procedimiento
+            test_visitor = GenericASTVisitor()
+            for stmt in proc.body:
+                test_visitor.visit(stmt, proc.name)
+            
+            if test_visitor.recursive_calls > 0:
+                main_proc = proc
+                func_name = proc.name
+                break
+        
+        # Si no hay recursivo, tomar el último (probablemente el principal)
+        if not main_proc and ast_root.procedures:
+            main_proc = ast_root.procedures[-1]
+            func_name = main_proc.name
     
-    # 1. Construir f(n) (Costo local)
+    # Analizar solo el procedimiento principal recursivo
+    visitor = GenericASTVisitor()
+    if main_proc:
+        # Analizar solo el cuerpo del procedimiento principal
+        for stmt in main_proc.body:
+            visitor.visit(stmt, func_name)
+    else:
+        # Fallback: analizar todo el AST
+        visitor.visit(ast_root, func_name)
+    
+    # 1. Construir f(n) (Costo local del procedimiento principal)
     poly_degree = visitor.max_loop_depth
     log_power = visitor.max_log_depth
 
@@ -269,7 +366,58 @@ def extract_generic_recurrence(ast_root, func_name="self") -> ExtractionResult:
     recurrence_str = ""
     explanation = ""
 
-    if a == 0:
+    # PRIORIDAD 1: Recursión detectada
+    if a > 0:
+        # Algoritmo recursivo - generar recurrencia basada en el tipo
+        
+        # Determinar b (factor de división) basado en análisis de argumentos
+        if visitor.recursion_type == "divide":
+            b = 2  # Asumimos división por 2 (común en divide-y-conquista)
+        elif visitor.recursion_type == "linear":
+            b = 1  # n-1, reducción lineal
+        else:
+            # Heurística: si hay 2 o más llamadas, probablemente divide-y-conquista
+            b = 2 if a >= 2 else 1
+        
+        # Determinar f(n) (trabajo fuera de la recursión)
+        # Si hay bucles locales, usar eso
+        if poly_degree > 0:
+            work_term = fn
+        elif log_power > 0:
+            work_term = fn
+        # Si hay llamadas a subrutinas (ej: Particion en QuickSort)
+        elif visitor.calls_in_loops or any(call for call in getattr(visitor, '_non_recursive_calls', [])):
+            # Analizar complejidad de subrutinas llamadas
+            # Para QuickSort con Particion, sabemos que Particion es O(n)
+            if hasattr(ast_root, 'procedures') and ast_root.procedures:
+                # Analizar la primera subrutina (probablemente auxiliar como Particion)
+                aux_proc = ast_root.procedures[0]
+                aux_visitor = GenericASTVisitor()
+                for stmt in aux_proc.body:
+                    aux_visitor.visit(stmt, aux_proc.name)
+                
+                # Usar la complejidad de la subrutina como f(n)
+                aux_degree = aux_visitor.max_loop_depth
+                if aux_degree > 0:
+                    work_term = _format_growth(aux_degree, aux_visitor.max_log_depth)
+                else:
+                    work_term = "n"  # Por defecto lineal para subrutinas
+            else:
+                work_term = "n"
+        else:
+            # Por defecto, trabajo constante o lineal
+            work_term = "n" if a >= 2 else "1"
+        
+        # Construir recurrencia: T(n) = a*T(n/b) + f(n)
+        if b == 1:
+            recurrence_str = f"T(n) = {a}*T(n-1) + {work_term}"
+            explanation = f"Recursión lineal: {a} llamada(s) con reducción n-1 y costo local O({work_term})."
+        else:
+            recurrence_str = f"T(n) = {a}*T(n/{b}) + {work_term}"
+            explanation = f"Divide y Conquista: {a} llamada(s) recursivas, división por {b}, costo local O({work_term})."
+    
+    # PRIORIDAD 2: Puramente iterativo (sin recursión)
+    elif a == 0:
         # Iterativo - verificar si hay llamadas en bucles para ajustar f(n)
         effective_fn = fn
         if visitor.calls_in_loops:
@@ -294,25 +442,6 @@ def extract_generic_recurrence(ast_root, func_name="self") -> ExtractionResult:
                 )
         
         recurrence_str = f"T(n) = {effective_fn}"
-    else:
-        # Recursivo
-        # HEURÍSTICA:
-        # - Si a >= 2: Asumimos Divide y Vencerás (n/2) -> MergeSort, QuickSort
-        # - Si a == 1 y f(n) == 1: Asumimos Búsqueda Binaria (T(n/2))
-        # - Si a == 1 y f(n) >= n: Asumimos Lineal (n-1) -> Factorial
-        
-        if a >= 2:
-            b = 2 # Asunción estándar para D&C
-            recurrence_str = f"T(n) = {a}*T(n/{b}) + {fn}"
-            explanation = f"Divide y Vencerás: {a} llamadas recursivas y costo local O({fn})."
-        
-        elif a == 1 and fn == "1":
-             recurrence_str = f"T(n) = T(n/2) + {fn}"
-             explanation = "Recursión simple con costo constante (tipo Búsqueda Binaria)."
-        
-        else: # a == 1
-             recurrence_str = f"T(n) = T(n-1) + {fn}"
-             explanation = "Recursión lineal simple."
 
     # Construir el objeto de recurrencia
     relation = RecurrenceRelation(

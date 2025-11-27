@@ -181,8 +181,9 @@ def analyze_algorithm_flow(source_code: str) -> dict:
                 justification = "No se pudo resolver la recurrencia. Usando análisis estructural."
                 math_steps = []
         
-        # Obtener detalles legibles
-        info = _get_complexity_details(main_result)
+        # Obtener detalles legibles considerando el patrón detectado
+        detected_pattern = structural.annotations.get("heuristica", "")
+        info = _get_complexity_details(main_result, detected_pattern, worst_case)
         
         response_steps["solution"] = {
             "title": "Análisis de Complejidad",
@@ -216,17 +217,26 @@ def analyze_algorithm_flow(source_code: str) -> dict:
     }
 
 # --- Helper para dar contexto humano ---
-def _get_complexity_details(theta_str: str) -> dict:
+def _get_complexity_details(theta_str: str, heuristica: str = "", worst_case: str = "") -> dict:
     """
     Traduce la notación matemática a nombres legibles para la UI.
+    Considera el contexto del algoritmo (patrón detectado y peor caso).
     Ej: Theta(n) -> { name: "Lineal", desc: "..." }
     """
-    s = str(theta_str).lower() 
+    s = str(theta_str).lower()
+    heur_lower = heuristica.lower()
+    worst_lower = worst_case.lower()
     
     if "log" in s and "n" not in s.split("log")[0]: # O(log n)
         return {"name": "Logarítmica", "desc": "Muy eficiente. Divide el problema paso a paso."}
     elif "n log n" in s:
-        return {"name": "Cuasilineal", "desc": "El estándar óptimo para ordenamientos (MergeSort)."}
+        # Distinguir entre QuickSort y MergeSort basado en peor caso
+        if "quicksort" in heur_lower:
+            return {"name": "Cuasilineal", "desc": "QuickSort: eficiente en promedio, pero O(n²) en peor caso."}
+        elif "mergesort" in heur_lower or "n^2" not in worst_lower:
+            return {"name": "Cuasilineal", "desc": "El estándar óptimo para ordenamientos (MergeSort)."}
+        else:
+            return {"name": "Cuasilineal", "desc": "Eficiencia óptima para ordenamiento (n log n)."}
     elif "n^2" in s:
         return {"name": "Cuadrática", "desc": "Eficiencia media/baja. Típico de bucles anidados."}
     elif "n^3" in s:

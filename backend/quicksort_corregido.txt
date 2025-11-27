@@ -1,0 +1,47 @@
+Particion(A[n], p, r)
+begin
+    pivote 🡨 A[p]
+    i 🡨 p
+    j 🡨 r
+    
+    while (i < j) do
+    begin
+        while (A[i] <= pivote and i <= r) do
+        begin
+            i 🡨 i + 1
+        end
+        
+        while (A[j] > pivote and j >= p) do
+        begin
+            j 🡨 j - 1
+        end
+        
+        if (i < j) then
+        begin
+            temp 🡨 A[i]
+            A[i] 🡨 A[j]
+            A[j] 🡨 temp
+        end
+    end
+    
+    temp 🡨 A[p]
+    A[p] 🡨 A[j]
+    A[j] 🡨 temp
+    
+    return j
+end
+
+QuickSort(A[n], p, r)
+begin
+    if (p < r) then
+    begin
+        q 🡨 p
+        CALL Particion(A, p, r)
+        
+        izq 🡨 q - 1
+        CALL QuickSort(A, p, izq)
+        
+        der 🡨 q + 1
+        CALL QuickSort(A, der, r)
+    end
+end

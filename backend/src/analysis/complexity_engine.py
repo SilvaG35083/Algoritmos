@@ -153,12 +153,55 @@ class ComplexityEngine:
 
         context = AnalysisContext(loop_iterators=set())
         program_case = self._analyze_block(program.body, context)
+        
+        # Detectar patrón recursivo específico si hay recursión
+        recursive_pattern = "unknown"
+        if has_recursion and program.procedures:
+            # Buscar el procedimiento recursivo (no auxiliar)
+            recursive_proc = None
+            for proc in program.procedures:
+                if self._count_recursive_calls(proc) > 0:
+                    recursive_proc = proc
+                    break
+            
+            # Si encontramos el recursivo, detectar su patrón
+            if recursive_proc:
+                recursive_pattern = self._detect_recursive_pattern(recursive_proc)
+            else:
+                # Fallback: analizar el último (probablemente el principal)
+                recursive_pattern = self._detect_recursive_pattern(program.procedures[-1])
+        
         if has_recursion:
-            recursion_case = CaseComplexity(
-                best=ComplexityMeasure(degree=1),
-                worst=ComplexityMeasure(degree=1, log_power=1),
-                average=ComplexityMeasure(degree=1, log_power=1),
-            )
+            # Aplicar heurísticas según el patrón detectado
+            if recursive_pattern == "quicksort":
+                # QuickSort: mejor O(n log n), peor O(n²), promedio O(n log n)
+                recursion_case = CaseComplexity(
+                    best=ComplexityMeasure(degree=1, log_power=1),  # n log n
+                    worst=ComplexityMeasure(degree=2),  # n²
+                    average=ComplexityMeasure(degree=1, log_power=1),  # n log n
+                )
+            elif recursive_pattern == "mergesort":
+                # MergeSort: siempre O(n log n)
+                recursion_case = CaseComplexity(
+                    best=ComplexityMeasure(degree=1, log_power=1),
+                    worst=ComplexityMeasure(degree=1, log_power=1),
+                    average=ComplexityMeasure(degree=1, log_power=1),
+                )
+            elif recursive_pattern == "binarysearch":
+                # Búsqueda binaria: mejor O(1), peor O(log n)
+                recursion_case = CaseComplexity(
+                    best=ComplexityMeasure(),  # 1
+                    worst=ComplexityMeasure(log_power=1),  # log n
+                    average=ComplexityMeasure(log_power=1),
+                )
+            else:
+                # Heurística genérica recursiva
+                recursion_case = CaseComplexity(
+                    best=ComplexityMeasure(degree=1),
+                    worst=ComplexityMeasure(degree=1, log_power=1),
+                    average=ComplexityMeasure(degree=1, log_power=1),
+                )
+            
             program_case = program_case.max_with(recursion_case)
 
         heuristica_partes = [
@@ -166,7 +209,8 @@ class ComplexityEngine:
             f"peor: {program_case.worst.degree}, promedio: {program_case.average.degree}."
         ]
         if has_recursion:
-            heuristica_partes.append("Se aplico heuristica recursiva (>= O(n log n)).")
+            pattern_desc = f" Patrón: {recursive_pattern}." if recursive_pattern != "unknown" else ""
+            heuristica_partes.append(f"Se aplicó heurística recursiva.{pattern_desc}")
         annotations["heuristica"] = " ".join(heuristica_partes)
         annotations["nota"] = "Complejidad estimada mediante analisis estructural."
 
@@ -394,3 +438,114 @@ class ComplexityEngine:
                     if any(keyword in var_name for keyword in ["encontr", "found", "flag", "exist"]):
                         names.add(condition.right.name)
         return names
+    
+    def _detect_recursive_pattern(self, proc: ast_nodes.Procedure) -> str:
+        """Detecta patrones recursivos específicos para aplicar heurísticas correctas.
+        
+        Retorna:
+        - 'quicksort': Patrón de QuickSort (2 llamadas recursivas con partición)
+        - 'mergesort': Patrón de MergeSort (2 llamadas recursivas con merge)
+        - 'binarysearch': Búsqueda binaria (1 llamada en condición)
+        - 'generic_divide': Divide y conquista genérico
+        - 'linear': Recursión lineal (n-1)
+        - 'unknown': No se reconoce el patrón
+        """
+        # Contar llamadas recursivas
+        recursive_calls = self._count_recursive_calls(proc)
+        
+        if recursive_calls == 0:
+            return "unknown"
+        
+        # QuickSort: 2 llamadas recursivas + bucle de partición
+        if recursive_calls == 2:
+            has_partition_loop = self._has_partition_pattern(proc)
+            if has_partition_loop:
+                return "quicksort"
+            # MergeSort también tiene 2 llamadas pero con merge lineal
+            return "mergesort"
+        
+        # Búsqueda binaria: 1 llamada recursiva en estructura condicional
+        if recursive_calls == 1:
+            has_binary_condition = self._has_binary_search_condition(proc)
+            if has_binary_condition:
+                return "binarysearch"
+            return "linear"
+        
+        return "generic_divide"
+    
+    def _count_recursive_calls(self, proc: ast_nodes.Procedure) -> int:
+        """Cuenta llamadas recursivas en un procedimiento."""
+        count = 0
+        
+        def visit(statements):
+            nonlocal count
+            for stmt in statements:
+                if isinstance(stmt, ast_nodes.CallStatement):
+                    if stmt.name.lower() == proc.name.lower() or stmt.name == 'self':
+                        count += 1
+                elif isinstance(stmt, ast_nodes.IfStatement):
+                    visit(stmt.then_branch)
+                    visit(stmt.else_branch)
+                elif isinstance(stmt, (ast_nodes.WhileLoop, ast_nodes.ForLoop)):
+                    visit(stmt.body)
+        
+        visit(proc.body)
+        return count
+    
+    def _has_partition_pattern(self, proc: ast_nodes.Procedure) -> bool:
+        """Detecta si hay un patrón de partición (bucles con comparaciones de pivote)."""
+        # Buscar recursivamente en statements anidados
+        def search_statements(statements):
+            for stmt in statements:
+                if isinstance(stmt, ast_nodes.WhileLoop):
+                    # Buscar condiciones que comparen con un pivote
+                    if self._contains_comparison(stmt.condition):
+                        return True
+                    if search_statements(stmt.body):
+                        return True
+                elif isinstance(stmt, ast_nodes.CallStatement):
+                    # Buscar llamada a función de partición
+                    if 'particion' in stmt.name.lower() or 'partition' in stmt.name.lower():
+                        return True
+                elif isinstance(stmt, ast_nodes.IfStatement):
+                    if search_statements(stmt.then_branch):
+                        return True
+                    if search_statements(stmt.else_branch):
+                        return True
+                elif isinstance(stmt, ast_nodes.ForLoop):
+                    if search_statements(stmt.body):
+                        return True
+            return False
+        
+        return search_statements(proc.body)
+    
+    def _has_binary_search_condition(self, proc: ast_nodes.Procedure) -> bool:
+        """Detecta condiciones típicas de búsqueda binaria."""
+        for stmt in proc.body:
+            if isinstance(stmt, ast_nodes.IfStatement):
+                # Buscar cálculo de punto medio
+                if self._contains_midpoint_calculation(stmt.then_branch) or \
+                   self._contains_midpoint_calculation(stmt.else_branch):
+                    return True
+        return False
+    
+    def _contains_comparison(self, expr: ast_nodes.Expression | None) -> bool:
+        """Verifica si una expresión contiene comparaciones."""
+        if expr is None:
+            return False
+        if isinstance(expr, ast_nodes.BinaryOperation):
+            if expr.operator in {"<", "<=", ">", ">=", "="}:
+                return True
+            return self._contains_comparison(expr.left) or self._contains_comparison(expr.right)
+        return False
+    
+    def _contains_midpoint_calculation(self, statements) -> bool:
+        """Busca cálculo de punto medio (low+high)/2."""
+        for stmt in statements:
+            if isinstance(stmt, ast_nodes.Assignment):
+                if isinstance(stmt.value, ast_nodes.BinaryOperation):
+                    if stmt.value.operator in {"/", "div"}:
+                        if isinstance(stmt.value.left, ast_nodes.BinaryOperation):
+                            if stmt.value.left.operator == "+":
+                                return True
+        return False
