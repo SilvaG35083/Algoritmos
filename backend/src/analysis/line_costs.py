@@ -91,8 +91,17 @@ class LineCostAnalyzer:
             is_binary = self._is_binary_search_while(node)
             is_log = self._is_log_while(node)
 
-            # Para búsqueda binaria o whiles logarítmicos, usamos solo log_depth
-            if is_binary or is_log:
+            # Para búsqueda binaria: tratamos el cuerpo como puramente logarítmico
+            if is_binary:
+                saved_depth = self._ctx.depth
+                self._ctx.depth = 0
+                self._ctx.log_depth += 1
+                self._visit(node.condition)
+                self._visit_block(node.body)
+                self._ctx.log_depth -= 1
+                self._ctx.depth = saved_depth
+            # Otros whiles logarítmicos (ej. i := i div 2) usan solo log_depth
+            elif is_log:
                 self._ctx.log_depth += 1
                 self._visit(node.condition)
                 self._visit_block(node.body)
@@ -238,7 +247,7 @@ class LineCostAnalyzer:
             return False
 
         # 2. Verificar que en el cuerpo se actualizan los extremos usando medio ± 1
-        def updates_bounds(statements: list[ast_nodes.Statement]) -> bool:
+        def updates_bounds(statements: list[ast_nodes.Statement]) -> tuple[bool, bool]:
             saw_update_lower = False
             saw_update_upper = False
             for st in statements:
@@ -255,12 +264,13 @@ class LineCostAnalyzer:
                             if v.operator == "+" and isinstance(v.left, ast_nodes.Identifier) and v.left.name == medio_name:
                                 saw_update_lower = True
                 elif isinstance(st, ast_nodes.IfStatement):
-                    if updates_bounds(st.then_branch):
-                        saw_update_lower = True or saw_update_lower
-                        saw_update_upper = True or saw_update_upper
-                    if updates_bounds(st.else_branch):
-                        saw_update_lower = True or saw_update_lower
-                        saw_update_upper = True or saw_update_upper
-            return saw_update_lower and saw_update_upper
+                    then_lower, then_upper = updates_bounds(st.then_branch)
+                    else_lower, else_upper = updates_bounds(st.else_branch)
+                    if then_lower or else_lower:
+                        saw_update_lower = True
+                    if then_upper or else_upper:
+                        saw_update_upper = True
+            return saw_update_lower, saw_update_upper
 
-        return updates_bounds(node.body)
+        lower_ok, upper_ok = updates_bounds(node.body)
+        return lower_ok and upper_ok

@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from typing import Any
+from parsing import ast_nodes
 from .recurrence_solver import RecurrenceRelation
 from .complexity_engine import ComplexityEngine, ComplexityResult
 
@@ -25,6 +26,9 @@ class GenericASTVisitor:
     def __init__(self):
         self.loop_depth = 0         #Profundidad actual de bucles
         self.max_loop_depth = 0     #Profundidad máxima encontrada
+        self.log_depth = 0          #Profundidad actual de bucles logarítmicos
+        self.max_log_depth = 0      #Máxima cantidad de factores log detectados
+        self.has_log_loop = False
         self.recursive_calls = 0
         # Contador específico para llamadas recursivas que ocurren dentro de bucles
         self.recursive_calls_in_loop = 0
@@ -73,8 +77,16 @@ class GenericASTVisitor:
         self.loop_depth -= 1 # Al salir, restamos
 
     def visit_WhileLoop(self, node, current_func_name):
-        """Igual que ForLoop"""
-        self.visit_ForLoop(node, current_func_name)
+        """Distingue entre bucles lineales y logarítmicos."""
+        if self._is_binary_search_while(node) or self._is_log_while(node):
+            self.has_log_loop = True
+            self.log_depth += 1
+            if self.log_depth > self.max_log_depth:
+                self.max_log_depth = self.log_depth
+            self.generic_visit(node, current_func_name)
+            self.log_depth -= 1
+        else:
+            self.visit_ForLoop(node, current_func_name)
 
     def visit_CallStatement(self, node, current_func_name):
         """Detecta si llamamos a la misma función (Recursión)"""
@@ -94,6 +106,110 @@ class GenericASTVisitor:
             key = callee.lower()
             self.calls_in_loops[key] = self.calls_in_loops.get(key, 0) + 1
 
+    def _is_log_while(self, node):
+        var = self._extract_loop_variable(node.condition)
+        if not var:
+            return False
+        return self._body_reduces_var_by_factor(node.body, var)
+
+    def _extract_loop_variable(self, expr):
+        if expr is None:
+            return None
+        if isinstance(expr, ast_nodes.BinaryOperation) and expr.operator in {"<", "<=", ">", ">=", "="}:
+            if isinstance(expr.left, ast_nodes.Identifier):
+                return expr.left.name
+            if isinstance(expr.right, ast_nodes.Identifier):
+                return expr.right.name
+        if isinstance(expr, ast_nodes.BinaryOperation) and expr.operator in {"and", "or"}:
+            left = self._extract_loop_variable(expr.left)
+            if left:
+                return left
+            return self._extract_loop_variable(expr.right)
+        return None
+
+    def _body_reduces_var_by_factor(self, statements, var_name: str) -> bool:
+        for st in statements:
+            if isinstance(st, ast_nodes.Assignment):
+                if isinstance(st.target, ast_nodes.Identifier) and st.target.name == var_name:
+                    val = st.value
+                    if isinstance(val, ast_nodes.BinaryOperation):
+                        if isinstance(val.left, ast_nodes.Identifier) and val.left.name == var_name:
+                            if val.operator in {"/", "div"}:
+                                if isinstance(val.right, ast_nodes.Number) and val.right.value > 1:
+                                    return True
+            elif isinstance(st, ast_nodes.IfStatement):
+                if self._body_reduces_var_by_factor(st.then_branch, var_name):
+                    return True
+                if self._body_reduces_var_by_factor(st.else_branch, var_name):
+                    return True
+            elif isinstance(st, ast_nodes.WhileLoop):
+                if self._body_reduces_var_by_factor(st.body, var_name):
+                    return True
+            elif isinstance(st, ast_nodes.ForLoop):
+                if self._body_reduces_var_by_factor(st.body, var_name):
+                    return True
+        return False
+
+    def _is_binary_search_while(self, node: ast_nodes.WhileLoop) -> bool:
+        if not isinstance(node.body, list):
+            return False
+
+        medio_name = None
+        lower_name = None
+        upper_name = None
+
+        for st in node.body:
+            if isinstance(st, ast_nodes.Assignment):
+                if isinstance(st.target, ast_nodes.Identifier) and isinstance(st.value, ast_nodes.BinaryOperation):
+                    val = st.value
+                    if val.operator in {"div", "/"} and isinstance(val.left, ast_nodes.BinaryOperation):
+                        sum_expr = val.left
+                        if (
+                            sum_expr.operator == "+"
+                            and isinstance(sum_expr.left, ast_nodes.Identifier)
+                            and isinstance(sum_expr.right, ast_nodes.Identifier)
+                            and isinstance(val.right, ast_nodes.Number)
+                            and val.right.value == 2
+                        ):
+                            medio_name = st.target.name
+                            lower_name = sum_expr.left.name
+                            upper_name = sum_expr.right.name
+                            break
+
+        if not (medio_name and lower_name and upper_name):
+            return False
+
+        def updates_bounds(statements):
+            saw_lower = False
+            saw_upper = False
+            for st in statements:
+                if isinstance(st, ast_nodes.Assignment) and isinstance(st.target, ast_nodes.Identifier):
+                    if (
+                        st.target.name == upper_name
+                        and isinstance(st.value, ast_nodes.BinaryOperation)
+                        and st.value.operator == "-"
+                        and isinstance(st.value.left, ast_nodes.Identifier)
+                        and st.value.left.name == medio_name
+                    ):
+                        saw_upper = True
+                    if (
+                        st.target.name == lower_name
+                        and isinstance(st.value, ast_nodes.BinaryOperation)
+                        and st.value.operator == "+"
+                        and isinstance(st.value.left, ast_nodes.Identifier)
+                        and st.value.left.name == medio_name
+                    ):
+                        saw_lower = True
+                elif isinstance(st, ast_nodes.IfStatement):
+                    l_then, u_then = updates_bounds(st.then_branch)
+                    l_else, u_else = updates_bounds(st.else_branch)
+                    saw_lower = saw_lower or l_then or l_else
+                    saw_upper = saw_upper or u_then or u_else
+            return saw_lower, saw_upper
+
+        lower_ok, upper_ok = updates_bounds(node.body)
+        return lower_ok and upper_ok
+
 def extract_generic_recurrence(ast_root, func_name="self") -> ExtractionResult:
     """
     Función principal que usa el Visitor para generar la ecuación.
@@ -102,12 +218,18 @@ def extract_generic_recurrence(ast_root, func_name="self") -> ExtractionResult:
     visitor.visit(ast_root, func_name)
     
     # 1. Construir f(n) (Costo local)
-    if visitor.max_loop_depth == 0:
-        fn = "1"  # Constante (sin bucles)
-    elif visitor.max_loop_depth == 1:
-        fn = "n"  # Lineal (1 bucle)
-    else:
-        fn = f"n^{visitor.max_loop_depth}" # Polinómico (bucles anidados)
+    poly_degree = visitor.max_loop_depth
+    log_power = visitor.max_log_depth
+
+    def _format_growth(degree: int, logp: int) -> str:
+        parts = []
+        if degree > 0:
+            parts.append("n" if degree == 1 else f"n^{degree}")
+        if logp > 0:
+            parts.append("log n" if logp == 1 else f"(log n)^{logp}")
+        return " ".join(parts) if parts else "1"
+
+    fn = _format_growth(poly_degree, log_power)
 
     # 2. Construir T(n) (Parte recursiva)
     a = visitor.recursive_calls
@@ -119,7 +241,16 @@ def extract_generic_recurrence(ast_root, func_name="self") -> ExtractionResult:
     if a == 0:
         # Iterativo
         recurrence_str = f"T(n) = {fn}"
-        explanation = f"Algoritmo iterativo con anidamiento {visitor.max_loop_depth}."
+        if poly_degree == 0 and log_power == 0:
+            explanation = "Algoritmo iterativo sin bucles relevantes."
+        elif poly_degree > 0 and log_power == 0:
+            explanation = f"Algoritmo iterativo con anidamiento {poly_degree}."
+        elif poly_degree == 0 and log_power > 0:
+            explanation = "Algoritmo iterativo logarítmico (p. ej. búsqueda binaria)."
+        else:
+            explanation = (
+                f"Algoritmo iterativo con anidamiento {poly_degree} y factor log^{log_power}."
+            )
     else:
         # Recursivo
         # HEURÍSTICA:
@@ -150,14 +281,24 @@ def extract_generic_recurrence(ast_root, func_name="self") -> ExtractionResult:
 
     # Además de la recurrencia, generamos la estimación estructural
     # reutilizando el ComplexityEngine para no perder heurísticas existentes.
+    engine = ComplexityEngine()
     try:
-        engine = ComplexityEngine()
         structural = engine.analyze(ast_root)
     except Exception:
         # En caso de fallo en el engine, devolvemos una estructura por defecto
         structural = ComplexityResult(
             best_case="Ω(1)", worst_case="O(1)", average_case="Θ(1)", annotations={}
         )
+
+    expr = _format_growth(poly_degree, log_power)
+    if expr != "1":
+        structural.annotations = dict(structural.annotations)
+        structural.annotations["loop_summary"] = (
+            f"Bucles polinomiales: {poly_degree}, bucles logarítmicos: {log_power}."
+        )
+        structural.best_case = f"Ω({expr})"
+        structural.worst_case = f"O({expr})"
+        structural.average_case = f"Θ({expr})"
 
     # Si hay llamadas a funciones dentro de bucles, calcular la complejidad
     # de las funciones llamadas y ajustar la estimación estructural.
@@ -213,27 +354,21 @@ def extract_generic_recurrence(ast_root, func_name="self") -> ExtractionResult:
                     max_log = lp
 
         if max_deg > 0 or max_log > 0:
-            # Combinar con la profundidad del bucle
             combined_deg = visitor.max_loop_depth + max_deg
-            combined_log = max_log
+            combined_log = visitor.max_log_depth + max_log
 
             def format_theta(deg: int, logp: int) -> str:
-                parts = []
-                if deg > 0:
-                    parts.append("n" if deg == 1 else f"n^{deg}")
-                if logp > 0:
-                    parts.append("log n" if logp == 1 else f"(log n)^{logp}")
-                expr = " ".join(parts) if parts else "1"
-                return f"Θ({expr})"
+                inner = _format_growth(deg, logp)
+                return f"Θ({inner})"
 
             structural.annotations = dict(structural.annotations)
-            structural.annotations["calls_in_loops_max_called"] = \
-                f"Max llamada: n^{max_deg} (log^{max_log}), combinada con bucle depth {visitor.max_loop_depth}"
+            structural.annotations["calls_in_loops_max_called"] = (
+                "Max llamada: "
+                + _format_growth(max_deg, max_log)
+                + f", combinada con bucles propios (deg={visitor.max_loop_depth}, log={visitor.max_log_depth})"
+            )
             structural.average_case = format_theta(combined_deg, combined_log)
-            # Ajustar best/worst conservadoramente si están vacíos
-            if not structural.best_case:
-                structural.best_case = f"Ω(n^{combined_deg})"
-            if not structural.worst_case:
-                structural.worst_case = f"O(n^{combined_deg})"
+            structural.best_case = f"Ω({_format_growth(combined_deg, combined_log)})"
+            structural.worst_case = f"O({_format_growth(combined_deg, combined_log)})"
 
     return ExtractionResult(relation=relation, structural=structural)

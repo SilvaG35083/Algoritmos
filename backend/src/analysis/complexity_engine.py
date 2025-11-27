@@ -221,7 +221,17 @@ class ComplexityEngine:
         if loop_var:
             if self._body_progresses_variable(loop.body, loop_var):
                 degree = self._infer_condition_degree(loop.condition, ignore={loop_var})
-        best = ComplexityMeasure()
+        
+        # Check for early exit conditions (e.g., binary search pattern)
+        has_early_exit = self._has_early_exit_condition(loop)
+        
+        if has_early_exit:
+            # Best case: can exit on first iteration (constant time)
+            best = ComplexityMeasure()
+        else:
+            # No early exit: must complete all iterations
+            best = body_case.best.add_degree(degree)
+        
         worst = body_case.worst.add_degree(degree)
         average = body_case.average.add_degree(degree)
         return CaseComplexity(best=best, worst=worst, average=average)
@@ -317,3 +327,70 @@ class ComplexityEngine:
                     if value.operator in {"+", "-"}:
                         return True
         return False
+
+    def _has_early_exit_condition(self, loop: ast_nodes.WhileLoop) -> bool:
+        """Detects if a while loop has early exit conditions (e.g., found flag in binary search)."""
+        # Check loop condition for exit flag
+        if self._condition_has_exit_flag(loop.condition):
+            # Check if body can set that flag
+            if self._body_can_set_exit_flag(loop.body, loop.condition):
+                return True
+        return False
+
+    def _condition_has_exit_flag(self, condition: ast_nodes.Expression | None) -> bool:
+        """Check if condition includes an exit flag (e.g., 'encontro = 0')."""
+        if condition is None:
+            return False
+        if isinstance(condition, ast_nodes.BinaryOperation):
+            if condition.operator in {"and", "or"}:
+                return self._condition_has_exit_flag(condition.left) or self._condition_has_exit_flag(condition.right)
+            # Look for patterns like 'encontro = 0' or 'found = false'
+            if condition.operator == "=":
+                if isinstance(condition.left, ast_nodes.Identifier):
+                    var_name = condition.left.name.lower()
+                    if any(keyword in var_name for keyword in ["encontr", "found", "flag", "exist"]):
+                        return True
+                if isinstance(condition.right, ast_nodes.Identifier):
+                    var_name = condition.right.name.lower()
+                    if any(keyword in var_name for keyword in ["encontr", "found", "flag", "exist"]):
+                        return True
+        return False
+
+    def _body_can_set_exit_flag(self, statements: Sequence[ast_nodes.Statement], condition: ast_nodes.Expression) -> bool:
+        """Check if loop body contains assignments that can trigger early exit."""
+        flag_names = self._extract_flag_names(condition)
+        if not flag_names:
+            return False
+        
+        for statement in statements:
+            if isinstance(statement, ast_nodes.Assignment):
+                if isinstance(statement.target, ast_nodes.Identifier):
+                    if statement.target.name in flag_names:
+                        return True
+            elif isinstance(statement, ast_nodes.IfStatement):
+                # Check if any branch sets the flag
+                if self._body_can_set_exit_flag(statement.then_branch, condition):
+                    return True
+                if self._body_can_set_exit_flag(statement.else_branch, condition):
+                    return True
+        return False
+
+    def _extract_flag_names(self, condition: ast_nodes.Expression | None) -> Set[str]:
+        """Extract variable names that act as exit flags from condition."""
+        names: Set[str] = set()
+        if condition is None:
+            return names
+        if isinstance(condition, ast_nodes.BinaryOperation):
+            if condition.operator in {"and", "or"}:
+                names.update(self._extract_flag_names(condition.left))
+                names.update(self._extract_flag_names(condition.right))
+            elif condition.operator == "=":
+                if isinstance(condition.left, ast_nodes.Identifier):
+                    var_name = condition.left.name.lower()
+                    if any(keyword in var_name for keyword in ["encontr", "found", "flag", "exist"]):
+                        names.add(condition.left.name)
+                if isinstance(condition.right, ast_nodes.Identifier):
+                    var_name = condition.right.name.lower()
+                    if any(keyword in var_name for keyword in ["encontr", "found", "flag", "exist"]):
+                        names.add(condition.right.name)
+        return names
