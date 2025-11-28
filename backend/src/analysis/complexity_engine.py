@@ -177,9 +177,24 @@ class ComplexityEngine:
         else:
             annotations["pattern_summary"] = "No se detectaron patrones relevantes."
         has_recursion = any(match.name == "recursion" for match in matches)
+        
+        # Detectar recursión manualmente si el PatternLibrary no la detectó
+        if not has_recursion and program.procedures:
+            for proc in program.procedures:
+                if self._count_recursive_calls(proc) > 0:
+                    has_recursion = True
+                    annotations["pattern_summary"] = f"Se detecto recursividad en la subrutina {proc.name}."
+                    break
 
         context = AnalysisContext(loop_iterators=set())
         program_case = self._analyze_block(program.body, context)
+        
+        # Si hay procedimientos, también analizarlos (especialmente recursivos)
+        if program.procedures:
+            for proc in program.procedures:
+                proc_case = self._analyze_block(proc.body, context)
+                # Combinar con el caso del programa principal
+                program_case = program_case.max_with(proc_case)
         
         # Detectar patrón recursivo específico si hay recursión
         recursive_pattern = "unknown"
@@ -194,14 +209,23 @@ class ComplexityEngine:
             # Si encontramos el recursivo, detectar su patrón
             if recursive_proc:
                 recursive_pattern = self._detect_recursive_pattern(recursive_proc)
+                print(f"DEBUG: Patrón recursivo detectado: '{recursive_pattern}' para {recursive_proc.name}")
             else:
                 # Fallback: analizar el último (probablemente el principal)
                 recursive_pattern = self._detect_recursive_pattern(program.procedures[-1])
+                print(f"DEBUG: Patrón recursivo (fallback): '{recursive_pattern}'")
         
         if has_recursion:
             # Aplicar heurísticas según el patrón detectado
             if recursive_pattern == "fibonacci":
                 # Fibonacci: exponencial O(2^n) en todos los casos
+                recursion_case = CaseComplexity(
+                    best=ComplexityMeasure(exponential_base=2),  # 2^n
+                    worst=ComplexityMeasure(exponential_base=2),  # 2^n
+                    average=ComplexityMeasure(exponential_base=2),  # 2^n
+                )
+            elif recursive_pattern == "hanoi":
+                # Torres de Hanoi: T(n) = 2*T(n-1) + 1 → O(2^n)
                 recursion_case = CaseComplexity(
                     best=ComplexityMeasure(exponential_base=2),  # 2^n
                     worst=ComplexityMeasure(exponential_base=2),  # 2^n
@@ -491,7 +515,7 @@ class ComplexityEngine:
         if recursive_calls == 0:
             return "unknown"
         
-        # Fibonacci: 2+ llamadas recursivas sin bucles ni subrutinas auxiliares
+        # 2+ llamadas recursivas: distinguir entre patrones
         if recursive_calls >= 2:
             has_loops = self._has_loops(proc)
             has_partition = self._has_partition_pattern(proc)
@@ -501,11 +525,18 @@ class ComplexityEngine:
             if not has_loops and not has_partition and has_early_return:
                 return "fibonacci"
             
+            # Torres de Hanoi: 2 llamadas recursivas lineales (n-1), sin bucles
+            # Distinguir de MergeSort porque Hanoi no tiene merge (sin bucles después)
+            if recursive_calls == 2 and not has_loops and not has_partition:
+                # Verificar que las llamadas son lineales (n-1 o similar)
+                if self._has_linear_recursive_calls(proc):
+                    return "hanoi"
+            
             # QuickSort: 2 llamadas + partición
             if has_partition:
                 return "quicksort"
             
-            # MergeSort: 2 llamadas sin partición
+            # MergeSort: 2 llamadas sin partición (tiene bucles para merge)
             return "mergesort"
         
         # Búsqueda binaria: 1 llamada recursiva en estructura condicional
@@ -614,3 +645,19 @@ class ComplexityEngine:
                     if isinstance(then_stmt, ast_nodes.ReturnStatement):
                         return True
         return False
+    
+    def _has_linear_recursive_calls(self, proc: ast_nodes.Procedure) -> bool:
+        """Verifica si las llamadas recursivas son lineales (n-1, n-k)."""
+        def search(statements):
+            for stmt in statements:
+                if isinstance(stmt, ast_nodes.CallStatement):
+                    if stmt.name.lower() == proc.name.lower():
+                        # Verificar si algún argumento tiene resta (n-1, n-k)
+                        for arg in stmt.arguments:
+                            if isinstance(arg, ast_nodes.BinaryOperation) and arg.operator == "-":
+                                return True
+                elif isinstance(stmt, ast_nodes.IfStatement):
+                    if search(stmt.then_branch) or search(stmt.else_branch):
+                        return True
+            return False
+        return search(proc.body)

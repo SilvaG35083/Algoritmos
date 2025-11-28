@@ -229,8 +229,12 @@ def _get_complexity_details(theta_str: str, heuristica: str = "", worst_case: st
     
     # Detectar exponencial (2^n, 3^n, etc)
     if "^n" in s:
-        if "2^n" in s or "fibonacci" in heur_lower:
+        if "fibonacci" in heur_lower:
             return {"name": "Exponencial", "desc": "Fibonacci: crece exponencialmente O(2^n). Intratable para n > 40."}
+        elif "hanoi" in heur_lower:
+            return {"name": "Exponencial", "desc": "Torres de Hanoi: T(n) = 2*T(n-1) + 1 → O(2^n). Intratable para n > 30."}
+        elif "2^n" in s:
+            return {"name": "Exponencial", "desc": "Crece exponencialmente O(2^n). Intratable para datos grandes."}
         else:
             return {"name": "Exponencial", "desc": "Crece exponencialmente. Intratable para datos grandes."}
     

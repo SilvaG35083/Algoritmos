@@ -85,23 +85,23 @@ end""",
             expected_complexity="O(n^2)",
         ),
         SampleAlgorithm(
-            name="", #prodcuto de matrices
-            category="Iterativo",
-            description="Triple bucle clasico para multiplicar matrices cuadradas.",
-            pseudocode="""begin
-    for i 🡨 1 to n do
+            name="Torres de Hanoi", 
+            category="Recursivo",
+            description="Mueve discos entre tres postes siguiendo reglas específicas.",
+            pseudocode="""TorresHanoi(n, origen, auxiliar, destino)
+begin
+    if (n = 1) then
     begin
-        for j 🡨 1 to n do
-        begin
-            C[i, j] 🡨 0
-            for k 🡨 1 to n do
-            begin
-                C[i, j] 🡨 C[i, j] + A[i, k] * B[k, j]
-            end
-        end
+        CALL Imprimir("Mover disco de " + origen + " a " + destino)
+    end
+    else
+    begin
+        CALL TorresHanoi(n - 1, origen, destino, auxiliar)
+        CALL Imprimir("Mover disco " + n + " de " + origen + " a " + destino)
+        CALL TorresHanoi(n - 1, auxiliar, origen, destino)
     end
 end""",
-            expected_complexity="O(n^3)",
+            expected_complexity="O(2^n)",
         ),
         SampleAlgorithm(
             name="QuickSort",
