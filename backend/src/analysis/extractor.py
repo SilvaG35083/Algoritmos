@@ -35,9 +35,12 @@ class GenericASTVisitor:
         # Registro de llamadas que ocurren dentro de bucles: callee -> count
         self.calls_in_loops: dict[str, int] = {}
         
-        # Heurística simple: si hay restas (n-1) o divisiones (n/2)
-        # Por defecto asumimos desconocido hasta ver argumentos
-        self.recursion_type = "unknown" 
+        # Rastrear TODAS las llamadas recursivas y sus tipos
+        self.recursion_type = "unknown"
+        self.recursive_call_details: list[dict] = []  # [{"type": "linear", "reduction": 1}, ...]
+        
+        # Contexto de asignaciones: var_name -> BinaryOperation
+        self._assignments: dict[str, ast_nodes.Expression] = {} 
 
     def visit(self, node, current_func_name="main"):
         """Despachador dinámico: llama a visit_NombreClase"""
@@ -128,6 +131,14 @@ class GenericASTVisitor:
         else:
             self.visit_ForLoop(node, current_func_name)
 
+    def visit_Assignment(self, node, current_func_name):
+        """Captura asignaciones para rastrear reducciones de variables."""
+        if isinstance(node, ast_nodes.Assignment):
+            if isinstance(node.target, ast_nodes.Identifier):
+                self._assignments[node.target.name] = node.value
+        # Continuar visitando recursivamente
+        self.generic_visit(node, current_func_name)
+    
     def visit_CallStatement(self, node, current_func_name):
         """Detecta si llamamos a la misma función (Recursión) y analiza tipo de reducción."""
         # Asumimos que node.name tiene el nombre de la función llamada
@@ -141,44 +152,78 @@ class GenericASTVisitor:
                 self.recursive_calls_in_loop += 1
             
             # Analizar argumentos para determinar tipo de recursión
-            reduction_type = self._analyze_recursive_call_arguments(node)
-            if reduction_type and self.recursion_type == "unknown":
-                self.recursion_type = reduction_type
+            reduction_details = self._analyze_recursive_call_arguments(node)
+            if reduction_details:
+                self.recursive_call_details.append(reduction_details)
+                # Actualizar recursion_type si aún es desconocido
+                if self.recursion_type == "unknown":
+                    self.recursion_type = reduction_details["type"]
         
         # Registrar cualquier llamada (no solo recursiva) que ocurra dentro de un bucle
         if self.loop_depth > 0 and callee:
             key = callee.lower()
             self.calls_in_loops[key] = self.calls_in_loops.get(key, 0) + 1
     
-    def _analyze_recursive_call_arguments(self, call_node) -> str:
+    def _analyze_recursive_call_arguments(self, call_node) -> dict:
         """Analiza los argumentos de una llamada recursiva para determinar el tipo de reducción.
         
-        Retorna:
-        - 'linear': n-1, n-k (reducción lineal)
-        - 'divide': n/2, n div 2 (divide y conquista)
-        - 'unknown': no se pudo determinar
+        Retorna dict con:
+        - 'type': 'linear' | 'divide' | 'unknown'
+        - 'reduction': el valor de reducción (1, 2, etc) para linear
+        - 'divisor': el divisor para divide
         """
         if not hasattr(call_node, 'arguments') or not call_node.arguments:
-            return "unknown"
+            return {"type": "unknown"}
         
         for arg in call_node.arguments:
-            # Buscar patrones de reducción
+            # Buscar patrones de reducción directos
             if isinstance(arg, ast_nodes.BinaryOperation):
-                # n - constante (ej: n-1)
+                # n - constante (ej: n-1, n-2)
                 if arg.operator == "-" and isinstance(arg.right, ast_nodes.Number):
-                    return "linear"
+                    return {"type": "linear", "reduction": arg.right.value}
                 
                 # n / constante o n div constante
                 if arg.operator in {"/", "div"}:
                     if isinstance(arg.right, ast_nodes.Number) and arg.right.value >= 2:
-                        return "divide"
+                        return {"type": "divide", "divisor": arg.right.value}
                     
                     # (low+high)/2 o similar - patrón de búsqueda binaria
                     if isinstance(arg.left, ast_nodes.BinaryOperation) and arg.left.operator == "+":
-                        return "divide"
+                        return {"type": "divide", "divisor": 2}
+            
+            # Si el argumento es un identificador (temp1, temp2), intentar rastrear su origen
+            elif isinstance(arg, ast_nodes.Identifier):
+                # Buscar asignación previa en el contexto
+                reduction_info = self._trace_variable_reduction(arg.name)
+                if reduction_info:
+                    return reduction_info
         
-        return "unknown"
+        return {"type": "unknown"}
+    
+    def _trace_variable_reduction(self, var_name: str) -> dict:
+        """Intenta rastrear el origen de una variable para detectar reducciones.
+        
+        Por ejemplo: temp1 ← n - 1, entonces temp1 representa una reducción de 1.
+        """
+        if var_name not in self._assignments:
+            return {"type": "unknown"}
+        
+        expr = self._assignments[var_name]
+        
+        # Analizar la expresión asignada
+        if isinstance(expr, ast_nodes.BinaryOperation):
+            # n - constante
+            if expr.operator == "-" and isinstance(expr.right, ast_nodes.Number):
+                return {"type": "linear", "reduction": expr.right.value}
+            
+            # n / constante
+            if expr.operator in {"/", "div"}:
+                if isinstance(expr.right, ast_nodes.Number) and expr.right.value >= 2:
+                    return {"type": "divide", "divisor": expr.right.value}
+        
+        return {"type": "unknown"}
 
+    """ Detecta si el while es de tipo logarítmico (reducción por factor) """
     def _is_log_while(self, node):
         var = self._extract_loop_variable(node.condition)
         if not var:
@@ -213,6 +258,7 @@ class GenericASTVisitor:
         return False
 
     def _extract_loop_variable(self, expr):
+        """Extrae el nombre de la variable usada en la condición del bucle."""
         if expr is None:
             return None
         if isinstance(expr, ast_nodes.BinaryOperation) and expr.operator in {"<", "<=", ">", ">=", "="}:
@@ -228,6 +274,7 @@ class GenericASTVisitor:
         return None
 
     def _body_reduces_var_by_factor(self, statements, var_name: str) -> bool:
+        """Verifica si el cuerpo reduce una variable por un factor (n ← n/2)"""
         for st in statements:
             if isinstance(st, ast_nodes.Assignment):
                 if isinstance(st.target, ast_nodes.Identifier) and st.target.name == var_name:
@@ -251,13 +298,14 @@ class GenericASTVisitor:
         return False
 
     def _is_binary_search_while(self, node: ast_nodes.WhileLoop) -> bool:
+        """Detecta si el while sigue el patrón de búsqueda binaria."""
         if not isinstance(node.body, list):
             return False
 
         medio_name = None
         lower_name = None
         upper_name = None
-
+        """Buscar la asignación de 'medio' como (inicio + fin) div 2"""
         for st in node.body:
             if isinstance(st, ast_nodes.Assignment):
                 if isinstance(st.target, ast_nodes.Identifier) and isinstance(st.value, ast_nodes.BinaryOperation):
@@ -278,7 +326,8 @@ class GenericASTVisitor:
 
         if not (medio_name and lower_name and upper_name):
             return False
-
+        
+        """Verificar que el cuerpo actualiza 'inicio' y 'fin' basados en 'medio'"""
         def updates_bounds(statements):
             saw_lower = False
             saw_upper = False
@@ -368,53 +417,60 @@ def extract_generic_recurrence(ast_root, func_name="self") -> ExtractionResult:
 
     # PRIORIDAD 1: Recursión detectada
     if a > 0:
-        # Algoritmo recursivo - generar recurrencia basada en el tipo
-        
-        # Determinar b (factor de división) basado en análisis de argumentos
-        if visitor.recursion_type == "divide":
-            b = 2  # Asumimos división por 2 (común en divide-y-conquista)
-        elif visitor.recursion_type == "linear":
-            b = 1  # n-1, reducción lineal
-        else:
-            # Heurística: si hay 2 o más llamadas, probablemente divide-y-conquista
-            b = 2 if a >= 2 else 1
-        
         # Determinar f(n) (trabajo fuera de la recursión)
-        # Si hay bucles locales, usar eso
         if poly_degree > 0:
             work_term = fn
         elif log_power > 0:
             work_term = fn
-        # Si hay llamadas a subrutinas (ej: Particion en QuickSort)
-        elif visitor.calls_in_loops or any(call for call in getattr(visitor, '_non_recursive_calls', [])):
-            # Analizar complejidad de subrutinas llamadas
-            # Para QuickSort con Particion, sabemos que Particion es O(n)
+        elif visitor.calls_in_loops:
+            # QuickSort con Particion
             if hasattr(ast_root, 'procedures') and ast_root.procedures:
-                # Analizar la primera subrutina (probablemente auxiliar como Particion)
                 aux_proc = ast_root.procedures[0]
                 aux_visitor = GenericASTVisitor()
                 for stmt in aux_proc.body:
                     aux_visitor.visit(stmt, aux_proc.name)
-                
-                # Usar la complejidad de la subrutina como f(n)
                 aux_degree = aux_visitor.max_loop_depth
-                if aux_degree > 0:
-                    work_term = _format_growth(aux_degree, aux_visitor.max_log_depth)
-                else:
-                    work_term = "n"  # Por defecto lineal para subrutinas
+                work_term = _format_growth(aux_degree, aux_visitor.max_log_depth) if aux_degree > 0 else "n"
             else:
                 work_term = "n"
         else:
-            # Por defecto, trabajo constante o lineal
-            work_term = "n" if a >= 2 else "1"
+            work_term = "1"  # Trabajo constante
         
-        # Construir recurrencia: T(n) = a*T(n/b) + f(n)
-        if b == 1:
-            recurrence_str = f"T(n) = {a}*T(n-1) + {work_term}"
-            explanation = f"Recursión lineal: {a} llamada(s) con reducción n-1 y costo local O({work_term})."
+        # Detectar patrón de Fibonacci: múltiples recursiones lineales con diferentes reducciones
+        if len(visitor.recursive_call_details) >= 2:
+            all_linear = all(call.get("type") == "linear" for call in visitor.recursive_call_details)
+            different_reductions = len(set(call.get("reduction", 0) for call in visitor.recursive_call_details)) > 1
+            
+            if all_linear and different_reductions:
+                # Patrón Fibonacci: T(n) = T(n-1) + T(n-2) + c
+                terms = []
+                for call in visitor.recursive_call_details:
+                    reduction = call.get("reduction", 1)
+                    terms.append(f"T(n-{reduction})")
+                recurrence_str = f"T(n) = {' + '.join(terms)} + {work_term}"
+                explanation = f"Recursión múltiple tipo Fibonacci: {len(terms)} llamadas con reducciones diferentes y costo local O({work_term})."
+            elif all_linear:
+                # Múltiples llamadas lineales con misma reducción
+                reduction = visitor.recursive_call_details[0].get("reduction", 1)
+                recurrence_str = f"T(n) = {a}*T(n-{reduction}) + {work_term}"
+                explanation = f"Recursión lineal múltiple: {a} llamada(s) con reducción n-{reduction} y costo local O({work_term})."
+            else:
+                # Divide y conquista (QuickSort, MergeSort)
+                recurrence_str = f"T(n) = {a}*T(n/2) + {work_term}"
+                explanation = f"Divide y Conquista: {a} llamada(s) recursivas, división por 2, costo local O({work_term})."
         else:
-            recurrence_str = f"T(n) = {a}*T(n/{b}) + {work_term}"
-            explanation = f"Divide y Conquista: {a} llamada(s) recursivas, división por {b}, costo local O({work_term})."
+            # Una sola llamada recursiva
+            if visitor.recursion_type == "linear":
+                reduction = visitor.recursive_call_details[0].get("reduction", 1) if visitor.recursive_call_details else 1
+                recurrence_str = f"T(n) = T(n-{reduction}) + {work_term}"
+                explanation = f"Recursión lineal simple: reducción n-{reduction} y costo local O({work_term})."
+            elif visitor.recursion_type == "divide":
+                divisor = visitor.recursive_call_details[0].get("divisor", 2) if visitor.recursive_call_details else 2
+                recurrence_str = f"T(n) = T(n/{divisor}) + {work_term}"
+                explanation = f"Recursión con división: división por {divisor} y costo local O({work_term})."
+            else:
+                recurrence_str = f"T(n) = T(n-1) + {work_term}"
+                explanation = f"Recursión simple con costo local O({work_term})."
     
     # PRIORIDAD 2: Puramente iterativo (sin recursión)
     elif a == 0:

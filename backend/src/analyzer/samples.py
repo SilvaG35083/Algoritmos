@@ -18,7 +18,8 @@ def load_samples() -> List[SampleAlgorithm]:
     """Devuelve al menos diez algoritmos representativos."""
     return [
         SampleAlgorithm(
-            name="Busqueda Lineal",
+           # name="Busqueda Lineal",
+            name="",
             category="Iterativo",
             description="Recorre el arreglo completo para encontrar un elemento.",
             pseudocode="""begin
@@ -84,7 +85,7 @@ end""",
             expected_complexity="O(n^2)",
         ),
         SampleAlgorithm(
-            name="Producto de Matrices",
+            name="", #prodcuto de matrices
             category="Iterativo",
             description="Triple bucle clasico para multiplicar matrices cuadradas.",
             pseudocode="""begin
@@ -156,7 +157,7 @@ end""",
             expected_complexity="O(n^2)",
         ),
         SampleAlgorithm(
-            name="MergeSort",
+            name="", #mergesort
             category="Recursivo",
             description="Divide el arreglo en mitades y las mezcla ordenadamente.",
             pseudocode="""begin
@@ -172,7 +173,7 @@ end""",
             expected_complexity="O(n log n)",
         ),
         SampleAlgorithm(
-            name="Conteo de Inversiones",
+            name="",    #conteo de inversiones
             category="Divide y venceras",
             description="Cuenta inversiones con recursion y mezcla.",
             pseudocode="""begin
@@ -222,17 +223,27 @@ end
             expected_complexity="O(log n)",
         ),
         SampleAlgorithm(
-            name="Fibonacci Recursivo",
+            name="Fibonacci",
             category="Recursivo",
             description="Definicion recursiva directa del n-esimo Fibonacci.",
-            pseudocode="""begin
+            pseudocode="""Fibonacci(n)
+begin
     if (n <= 1) then
     begin
         return n
     end
     else
     begin
-        return CALL self(n - 1) + CALL self(n - 2)
+        temp1 🡨 n - 1
+        val1 🡨 0
+        CALL Fibonacci(temp1)
+        
+        temp2 🡨 n - 2
+        val2 🡨 0
+        CALL Fibonacci(temp2)
+        
+        resultado 🡨 val1 + val2
+        return resultado
     end
 end""",
             expected_complexity="O(2^n)",
@@ -251,7 +262,7 @@ end""",
             expected_complexity="O(n)",
         ),
         SampleAlgorithm(
-            name="Dijkstra Simplificado",
+            name="",  #dijkstra
             category="Grafos",
             description="Explora un grafo usando cola de prioridad.",
             pseudocode="""begin
@@ -272,7 +283,7 @@ end""",
             expected_complexity="O((n + m) log n)",
         ),
         SampleAlgorithm(
-            name="Multiplicacion de Strassen",
+            name="",    #Multiplicacion de Strassen
             category="Divide y venceras",
             description="Ejemplo de algoritmo avanzado para matrices.",
             pseudocode="""begin

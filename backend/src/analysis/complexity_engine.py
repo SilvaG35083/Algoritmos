@@ -34,12 +34,28 @@ class EngineConfig:
 
 @dataclass(slots=True)
 class ComplexityMeasure:
-    """Polynomial-like complexity expression: n^degree * (log n)^log_power."""
+    """Complexity expression: base^n * n^degree * (log n)^log_power.
+    
+    - exponential_base > 1: exponencial (2^n, 3^n, etc)
+    - exponential_base = 0: polinomial/logarítmico
+    """
 
     degree: int = 0
     log_power: int = 0
+    exponential_base: int = 0  # 0=no exponencial, 2=2^n, 3=3^n, etc
 
     def dominates(self, other: "ComplexityMeasure") -> bool:
+        # Exponencial siempre domina sobre polinomial
+        if self.exponential_base > 0 and other.exponential_base == 0:
+            return True
+        if self.exponential_base == 0 and other.exponential_base > 0:
+            return False
+        
+        # Ambos exponenciales: comparar bases
+        if self.exponential_base > 0 and other.exponential_base > 0:
+            return self.exponential_base >= other.exponential_base
+        
+        # Ambos polinomiales: comparar grado y log
         if self.degree != other.degree:
             return self.degree > other.degree
         return self.log_power >= other.log_power
@@ -57,16 +73,27 @@ class ComplexityMeasure:
         return ComplexityMeasure(degree=self.degree, log_power=self.log_power + amount)
 
     def to_notation(self, prefix: str) -> str:
-        if self.degree == 0 and self.log_power == 0:
+        # Caso trivial: constante
+        if self.degree == 0 and self.log_power == 0 and self.exponential_base == 0:
             return f"{prefix}(1)"
+        
         factors: List[str] = []
+        
+        # Exponencial (más significativo)
+        if self.exponential_base > 0:
+            factors.append(f"{self.exponential_base}^n")
+        
+        # Polinomial
         if self.degree > 0:
             factors.append("n" if self.degree == 1 else f"n^{self.degree}")
+        
+        # Logarítmico
         if self.log_power > 0:
             if self.log_power == 1:
                 factors.append("log n")
             else:
                 factors.append(f"(log n)^{self.log_power}")
+        
         expr = " ".join(factors) if factors else "1"
         return f"{prefix}({expr})"
 
@@ -173,7 +200,14 @@ class ComplexityEngine:
         
         if has_recursion:
             # Aplicar heurísticas según el patrón detectado
-            if recursive_pattern == "quicksort":
+            if recursive_pattern == "fibonacci":
+                # Fibonacci: exponencial O(2^n) en todos los casos
+                recursion_case = CaseComplexity(
+                    best=ComplexityMeasure(exponential_base=2),  # 2^n
+                    worst=ComplexityMeasure(exponential_base=2),  # 2^n
+                    average=ComplexityMeasure(exponential_base=2),  # 2^n
+                )
+            elif recursive_pattern == "quicksort":
                 # QuickSort: mejor O(n log n), peor O(n²), promedio O(n log n)
                 recursion_case = CaseComplexity(
                     best=ComplexityMeasure(degree=1, log_power=1),  # n log n
@@ -443,6 +477,7 @@ class ComplexityEngine:
         """Detecta patrones recursivos específicos para aplicar heurísticas correctas.
         
         Retorna:
+        - 'fibonacci': Recursión múltiple tipo Fibonacci (exponencial)
         - 'quicksort': Patrón de QuickSort (2 llamadas recursivas con partición)
         - 'mergesort': Patrón de MergeSort (2 llamadas recursivas con merge)
         - 'binarysearch': Búsqueda binaria (1 llamada en condición)
@@ -456,12 +491,21 @@ class ComplexityEngine:
         if recursive_calls == 0:
             return "unknown"
         
-        # QuickSort: 2 llamadas recursivas + bucle de partición
-        if recursive_calls == 2:
-            has_partition_loop = self._has_partition_pattern(proc)
-            if has_partition_loop:
+        # Fibonacci: 2+ llamadas recursivas sin bucles ni subrutinas auxiliares
+        if recursive_calls >= 2:
+            has_loops = self._has_loops(proc)
+            has_partition = self._has_partition_pattern(proc)
+            has_early_return = self._has_early_return_in_condition(proc)
+            
+            # Fibonacci: múltiples recursiones, sin bucles, con return temprano
+            if not has_loops and not has_partition and has_early_return:
+                return "fibonacci"
+            
+            # QuickSort: 2 llamadas + partición
+            if has_partition:
                 return "quicksort"
-            # MergeSort también tiene 2 llamadas pero con merge lineal
+            
+            # MergeSort: 2 llamadas sin partición
             return "mergesort"
         
         # Búsqueda binaria: 1 llamada recursiva en estructura condicional
@@ -548,4 +592,25 @@ class ComplexityEngine:
                         if isinstance(stmt.value.left, ast_nodes.BinaryOperation):
                             if stmt.value.left.operator == "+":
                                 return True
+        return False
+    
+    def _has_loops(self, proc: ast_nodes.Procedure) -> bool:
+        """Detecta si el procedimiento tiene bucles."""
+        def search(statements):
+            for stmt in statements:
+                if isinstance(stmt, (ast_nodes.WhileLoop, ast_nodes.ForLoop, ast_nodes.RepeatUntilLoop)):
+                    return True
+                if isinstance(stmt, ast_nodes.IfStatement):
+                    if search(stmt.then_branch) or search(stmt.else_branch):
+                        return True
+            return False
+        return search(proc.body)
+    
+    def _has_early_return_in_condition(self, proc: ast_nodes.Procedure) -> bool:
+        """Detecta if con return en el then_branch (caso base de recursión)."""
+        for stmt in proc.body:
+            if isinstance(stmt, ast_nodes.IfStatement):
+                for then_stmt in stmt.then_branch:
+                    if isinstance(then_stmt, ast_nodes.ReturnStatement):
+                        return True
         return False
