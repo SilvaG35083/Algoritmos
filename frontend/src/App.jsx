@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AlgorithmCard } from "./components/AlgorithmCard.jsx";
 //import { ResultPanel } from "./components/ResultPanel.jsx";
 import { AnalysisModal } from "./PasosAnalisis/AnalysisModal.jsx";
+import { SimulationModal } from "./components/SimulationModal.jsx";
 import { ChatPanel } from "./components/ChatPanel.jsx";
 import {mockAnalysisResult} from "../mockdata.js";
 import { Header } from "./components/Header.jsx";
@@ -17,6 +18,7 @@ function App() {
   const [error, setError] = useState(null);
   const [uploadName, setUploadName] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSimulationModalOpen, setIsSimulationModalOpen] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -37,6 +39,42 @@ function App() {
     }
     fetchSamples();
   }, []);
+
+  const handleSimulateClick = () => {
+    if (!pseudocode.trim()) {
+      setError("Por favor ingresa un algoritmo antes de simular.");
+      return;
+    }
+    setIsSimulationModalOpen(true);
+    setError(null);
+  };
+
+  const handleSimulate = async (inputsJson) => {
+    const payload = { 
+      code: pseudocode, 
+      inputs: inputsJson
+    };
+    
+    console.log("📤 Enviando al backend:", payload);
+
+    const response = await fetch(`${API_BASE}/api/simulate`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("❌ Error del backend:", errorData);
+      throw new Error(errorData.detail || errorData.error || "Error en la simulación");
+    }
+
+    const data = await response.json();
+    console.log("✅ Datos recibidos:", data);
+    return data;
+  };
 
   const handleAnalyze = async () => {
     if (!pseudocode.trim()) {
@@ -92,9 +130,6 @@ function App() {
     setUploadName("");
   };
 
-
-  const topSamples = useMemo(() => samples.slice(0, 6), [samples]);
-
   const handleFileButtonClick = () => {
     fileInputRef.current?.click();
   };
@@ -119,68 +154,69 @@ function App() {
       <Header />
 
       <section className="glass-card input-panel">
-        <div className="input-header">
-          <div>
-            <p className="section-eyebrow">Editor inteligente</p>
-            <h2>Pseudocodigo</h2>
-            <p className="text-muted">
-              Escribe tu algoritmo o carga un archivo `.txt`, `.psc`, `.algo`.
-            </p>
+          <div className="input-header">
+            <div>
+              <p className="section-eyebrow">Editor inteligente</p>
+              <h2>Pseudocodigo</h2>
+              <p className="text-muted">
+                Escribe tu algoritmo o carga un archivo `.txt`, `.psc`, `.algo`.
+              </p>
+            </div>
+            <div className="input-toolbar">
+              <button className="btn btn-ghost" onClick={handleClear}>
+                Limpiar
+              </button>
+              <button className="btn btn-secondary" onClick={handleFileButtonClick}>
+                Cargar archivo
+              </button>
+              <button className="btn btn-primary" onClick={handleAnalyze} disabled={loadingAnalysis}>
+                {loadingAnalysis ? "Analizando..." : "Analizar"}
+              </button>
+              <button className="btn btn-primary" onClick={handleSimulateClick} disabled={!pseudocode.trim()}>
+                Simular
+              </button>
+              <input
+                type="file"
+                accept=".txt,.psc,.algo,.md,.json,.py"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                hidden
+              />
+            </div>
           </div>
-          <div className="input-toolbar">
-            <button className="btn btn-ghost" onClick={handleClear}>
-              Limpiar
-            </button>
-            <button className="btn btn-secondary" onClick={handleFileButtonClick}>
-              Cargar archivo
-            </button>
-            <button className="btn btn-primary" onClick={handleAnalyze} disabled={loadingAnalysis}>
-              {loadingAnalysis ? "Analizando..." : "Analizar"}
-            </button>
-            <input
-              type="file"
-              accept=".txt,.psc,.algo,.md,.json,.py"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              hidden
-            />
+          <textarea
+            className="textarea"
+            value={pseudocode}
+            onChange={(event) => setPseudocode(event.target.value)}
+            placeholder="begin&#10;    for i 🡨 1 to n do&#10;    begin&#10;        ...&#10;    end&#10;end"
+          />
+          <div className="input-footer">
+            {uploadName ? (
+              <span className="file-indicator">
+                Archivo cargado: <strong>{uploadName}</strong>
+              </span>
+            ) : (
+              <span className="text-muted">Puedes pegar texto o subir un archivo.</span>
+            )}
+            {error && <span className="text-alert">{error}</span>}
           </div>
-        </div>
-        <textarea
-          className="textarea"
-          value={pseudocode}
-          onChange={(event) => setPseudocode(event.target.value)}
-          placeholder="begin&#10;    for i 🡨 1 to n do&#10;    begin&#10;        ...&#10;    end&#10;end"
-        />
-        <div className="input-footer">
-          {uploadName ? (
-            <span className="file-indicator">
-              Archivo cargado: <strong>{uploadName}</strong>
-            </span>
-          ) : (
-            <span className="text-muted">Puedes pegar texto o subir un archivo.</span>
-          )}
-          {error && <span className="text-alert">{error}</span>}
-        </div>
       </section>
 
-      <div className="grid grid--two">
-        <section className="glass-card samples-panel">
-          <div className="panel-heading">
-            <div>
-              <p className="section-eyebrow">Dataset de practica</p>
-              <h3>Algoritmos de ejemplo</h3>
-              <p className="text-muted">Selecciona uno para rellenar el editor.</p>
-            </div>
-            {loadingSamples && <small className="text-muted">Cargando...</small>}
+      <section className="glass-card samples-panel">
+        <div className="panel-heading">
+          <div>
+            <p className="section-eyebrow">Dataset de practica</p>
+            <h3>Algoritmos de ejemplo</h3>
+            <p className="text-muted">Selecciona uno para rellenar el editor.</p>
           </div>
-          <div className="samples-grid">
-            {topSamples.map((sample) => (
-              <AlgorithmCard key={sample.name} sample={sample} onSelect={handleSampleSelect} />
-            ))}
-          </div>
-        </section>
-      </div>
+          {loadingSamples && <small className="text-muted">Cargando...</small>}
+        </div>
+        <div className="samples-grid">
+          {samples.map((sample) => (
+            <AlgorithmCard key={sample.name} sample={sample} onSelect={handleSampleSelect} />
+          ))}
+        </div>
+      </section>
 
       <ChatPanel 
         onAlgorithmGenerated={(pseudocode) => {
@@ -213,21 +249,19 @@ function App() {
           </p>
         </article>
       </section>
-      {/* MODAL COMPONENT  */}
+      {/* MODAL COMPONENTS */}
       <AnalysisModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
         result={result}
       />
 
-       <div className="grid grid--two">
-         {/* ... Samples Panel ... */}
-         
-         {/* Opcional: Panel placeholder que invite a analizar */}
-         <section className="glass-card" style={{display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
-            <p className="text-muted">Los resultados aparecerán en una ventana detallada.</p>
-         </section>
-       </div>
+      <SimulationModal
+        isOpen={isSimulationModalOpen}
+        onClose={() => setIsSimulationModalOpen(false)}
+        pseudocode={pseudocode}
+        onSimulate={handleSimulate}
+      />
 
     </div>
   );
