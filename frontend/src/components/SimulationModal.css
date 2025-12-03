@@ -62,14 +62,20 @@
   color: white;
 }
 
+/* Wrapper con scroll */
+.simulation-modal-body-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
 /* Body con dos columnas */
 .simulation-modal-body {
   display: grid;
   grid-template-columns: 400px 1fr;
   gap: 1.5rem;
   padding: 1.5rem;
-  overflow: hidden;
-  flex: 1;
+  min-height: min-content;
 }
 
 @media (max-width: 1024px) {
@@ -182,4 +188,99 @@
   border: 1px dashed #3f3f46;
   border-radius: 8px;
   font-size: 0.95rem;
+}
+
+/* Sección de Métricas */
+.metrics-section {
+  border-top: 1px solid #27272a;
+  padding: 1.5rem;
+  background: rgba(9, 10, 18, 0.3);
+}
+
+.metrics-header {
+  margin-bottom: 1rem;
+}
+
+.metrics-header h4 {
+  margin: 0;
+  color: #f4f4f5;
+  font-size: 1.1rem;
+}
+
+.metrics-header .text-muted {
+  margin: 0.25rem 0 0;
+  color: #71717a;
+  font-size: 0.85rem;
+}
+
+.metrics-comparison {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+@media (max-width: 1024px) {
+  .metrics-comparison {
+    grid-template-columns: 1fr;
+  }
+}
+
+.analysis-card {
+  background: rgba(15, 16, 24, 0.75);
+  border: 1px solid #27272a;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.analysis-card .card-header {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #27272a;
+}
+
+.analysis-card .card-header h5 {
+  margin: 0.5rem 0 0;
+  color: #f4f4f5;
+  font-size: 1rem;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.25rem 0.65rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.badge-blue {
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+}
+
+.badge-green {
+  background: rgba(34, 197, 94, 0.2);
+  color: #4ade80;
+}
+
+.analysis-card .card-body {
+  padding: 1.25rem;
+}
+
+.complexity-value {
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: #60a5fa;
+  margin-bottom: 0.5rem;
+  font-family: monospace;
+}
+
+.complexity-desc {
+  color: #a1a1aa;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.text-muted {
+  color: #71717a;
 }

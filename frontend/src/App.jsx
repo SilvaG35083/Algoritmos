@@ -19,6 +19,7 @@ function App() {
   const [uploadName, setUploadName] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSimulationModalOpen, setIsSimulationModalOpen] = useState(false);
+  const [tempAnalysisResult, setTempAnalysisResult] = useState(null);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -40,11 +41,48 @@ function App() {
     fetchSamples();
   }, []);
 
-  const handleSimulateClick = () => {
+  const handleSimulateClick = async () => {
     if (!pseudocode.trim()) {
       setError("Por favor ingresa un algoritmo antes de simular.");
       return;
     }
+    
+    console.log("🔍 Estado de result antes de abrir modal:", result);
+    
+    // Si no hay análisis previo, ejecutarlo automáticamente
+    if (!result) {
+      console.log("⚠️ No hay análisis previo, ejecutando análisis automáticamente...");
+      setError(null);
+      setLoadingAnalysis(true);
+      
+      try {
+        const res = await fetch(`${API_BASE}/api/analyze`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ source: pseudocode }),
+        });
+        
+        const data = await res.json();
+        
+        if (res.ok && data.success) {
+          setResult(data);
+          setTempAnalysisResult(data); // Guardar en estado temporal
+          console.log("✅ Análisis completado automáticamente:", data);
+        } else {
+          console.log("⚠️ El análisis falló, pero se puede simular sin él");
+          setTempAnalysisResult(null);
+        }
+      } catch (err) {
+        console.log("⚠️ Error en análisis automático:", err.message);
+        setTempAnalysisResult(null);
+      } finally {
+        setLoadingAnalysis(false);
+      }
+    } else {
+      // Si ya hay análisis, usarlo
+      setTempAnalysisResult(result);
+    }
+    
     setIsSimulationModalOpen(true);
     setError(null);
   };
@@ -258,9 +296,13 @@ function App() {
 
       <SimulationModal
         isOpen={isSimulationModalOpen}
-        onClose={() => setIsSimulationModalOpen(false)}
+        onClose={() => {
+          setIsSimulationModalOpen(false);
+          setTempAnalysisResult(null);
+        }}
         pseudocode={pseudocode}
         onSimulate={handleSimulate}
+        analysisResult={tempAnalysisResult || result}
       />
 
     </div>

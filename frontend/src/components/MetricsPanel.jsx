@@ -1,6 +1,6 @@
-// src/components/MetricsPanel.jsx
 import React, { useMemo } from 'react';
-import { calculateTreeMetrics } from '../utils/treeMetrics';
+import { calculateTreeMetrics } from '../utils/treeMetrics.js';
+import './MetricsPanel.css';
 
 export default function MetricsPanel({ treeData, inputN, theoreticalComplexity }) {
   
@@ -12,30 +12,111 @@ export default function MetricsPanel({ treeData, inputN, theoreticalComplexity }
 
   if (!metrics) return null;
 
-  // 2. Lógica de Comparación (Opcional: Si tienes la complejidad teórica)
-  // Ejemplo: Si el backend dice "O(2^n)" y n=3, esperamos 2^3 = 8 pasos aprox.
-  const expectedSteps = theoreticalComplexity === "2^n" ? Math.pow(2, inputN) : "N/A";
+  // 2. Calcular complejidad esperada basada en la teórica (mejor, promedio, peor caso)
+  const calculateExpectedCases = () => {
+    if (!theoreticalComplexity || !inputN) return null;
+    
+    const complexity = theoreticalComplexity.toLowerCase();
+    
+    // Fibonacci: O(2^n)
+    if (complexity.includes("2^n") || complexity === "o(2^n)") {
+      const expected = Math.pow(2, inputN);
+      return {
+        best: Math.round(expected * 0.8),
+        average: expected,
+        worst: Math.round(expected * 1.2)
+      };
+    } 
+    // O(n^2)
+    else if (complexity.includes("n^2") || complexity === "o(n^2)") {
+      const expected = Math.pow(inputN, 2);
+      return {
+        best: expected,
+        average: expected,
+        worst: expected
+      };
+    } 
+    // O(n log n)
+    else if (complexity.includes("n log n") || complexity === "o(n log n)") {
+      const expected = Math.round(inputN * Math.log2(inputN));
+      return {
+        best: expected,
+        average: expected,
+        worst: expected
+      };
+    } 
+    // O(n)
+    else if (complexity === "o(n)" || complexity.includes("lineal")) {
+      return {
+        best: inputN,
+        average: inputN,
+        worst: inputN
+      };
+    } 
+    // O(1)
+    else if (complexity === "o(1)" || complexity.includes("constante")) {
+      return {
+        best: 1,
+        average: 1,
+        worst: 1
+      };
+    }
+    
+    return null;
+  };
+
+  const expectedCases = calculateExpectedCases();
+  const deviation = expectedCases 
+    ? Math.abs(metrics.totalSteps - expectedCases.average) 
+    : null;
+
+  // Determinar clase de desviación (buena/warning/error)
+  const getDeviationClass = () => {
+    if (deviation === null) return '';
+    if (deviation < 5) return 'good';
+    if (deviation < 20) return 'warning';
+    return 'error';
+  };
 
   return (
-    <div className="grid grid-cols-2 gap-4 mt-6 p-4 bg-gray-900 rounded-lg border border-gray-700 text-white">
+    <div className="metrics-panel">
       
       {/* TARJETA 1: COSTO TEMPORAL */}
-      <div className="p-4 bg-gray-800 rounded border-l-4 border-blue-500">
-        <h4 className="text-gray-400 text-sm uppercase font-bold">Costo Temporal Real</h4>
-        <div className="text-3xl font-bold mt-1">{metrics.totalSteps} <span className="text-sm font-normal text-gray-400">ops</span></div>
-        <p className="text-xs text-gray-500 mt-2">
+      <div className="metric-card temporal">
+        <h4 className="metric-title">Costo Temporal Real</h4>
+        <div className="metric-value temporal">
+          {metrics.totalSteps}
+          <span className="metric-unit">llamadas</span>
+        </div>
+        <p className="metric-description">
           Total de llamadas recursivas realizadas.
-          {/* Aquí podrías mostrar la comparación */}
-           <br/>(Predicción Teórica para n={inputN}: {expectedSteps})
+          {expectedCases && inputN && (
+            <>
+              <span className="metric-expected">
+                Mejor caso: {expectedCases.best} | Promedio: {expectedCases.average} | Peor caso: {expectedCases.worst}
+              </span>
+              {deviation !== null && (
+                <span className={`metric-deviation ${getDeviationClass()}`}>
+                  Desviación del promedio: ±{deviation}
+                  {metrics.totalSteps >= expectedCases.best && metrics.totalSteps <= expectedCases.worst && 
+                    <span style={{ color: '#4ade80', marginLeft: '0.5rem' }}>✓ Dentro del rango</span>
+                  }
+                </span>
+              )}
+            </>
+          )}
         </p>
       </div>
 
       {/* TARJETA 2: COSTO ESPACIAL */}
-      <div className="p-4 bg-gray-800 rounded border-l-4 border-green-500">
-        <h4 className="text-gray-400 text-sm uppercase font-bold">Costo Espacial (Stack)</h4>
-        <div className="text-3xl font-bold mt-1">{metrics.maxDepth} <span className="text-sm font-normal text-gray-400">niveles</span></div>
-        <p className="text-xs text-gray-500 mt-2">
-          Profundidad máxima alcanzada en memoria.
+      <div className="metric-card spatial">
+        <h4 className="metric-title">Costo Espacial (Stack)</h4>
+        <div className="metric-value spatial">
+          {metrics.maxDepth}
+          <span className="metric-unit">niveles</span>
+        </div>
+        <p className="metric-description">
+          Profundidad máxima del stack de llamadas.
         </p>
       </div>
 
