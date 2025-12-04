@@ -13,6 +13,14 @@ Ya **no existe una interfaz Tkinter dentro del backend**; toda interacción visu
 2. **Parsing estructural**: el lexer reconoce comentarios (`►`), flechas de asignación (`🡨`), operadores Unicode y palabras reservadas; luego el parser genera el AST con bucles, condicionales, llamadas, arreglos, etc.
 3. **Normalización y metadatos**: se crean tablas básicas de símbolos, se detectan patrones de control y se construyen estructuras para análisis posterior.
 4. **Análisis de complejidad**: el motor polinómico calcula grados sobre `n` y potencias de `log n`, combinando secuencias, bucles, condicionales y heurísticas recursivas; produce las cotas O/Ω/Θ.
+   
+	 Nota importante (actualización): ahora el análisis del backend se unifica a través de un único punto de entrada llamado *extractor* (`src/analysis/extractor.py`).
+	 - `extractor` actúa como fachada: obtiene la recurrencia (para el solver) y además invoca internamente el `ComplexityEngine` para producir la estimación estructural. 
+	 - Esto significa que tanto el análisis estructural (antes ejecutado por `ComplexityEngine`) como el modelado de recurrencias (antes `extractor` -> `recurrence_solver`) se exponen desde un único módulo.
+	 - Ventaja: el pipeline y los endpoints sólo necesitan llamar a `extract_generic_recurrence` para obtener:
+		 - `relation`: la cadena `T(n) = ...` y notas explicativas
+		 - `structural`: las cotas `best_case`, `worst_case`, `average_case` y anotaciones
+	 - Implementación práctica: `analyzer.pipeline.AnalysisPipeline` y `services.analysis_service.analyze_algorithm_flow` fueron adaptados para usar el extractor como única fuente de análisis.
 5. **Reporte**: `reporter.py` arma un resumen y anotaciones; FastAPI lo serializa y el frontend lo visualiza.
 
 ## Módulos principales (backend)

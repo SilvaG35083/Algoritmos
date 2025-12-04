@@ -47,6 +47,47 @@ class Parser:
         while self._match_keyword("class"):
             class_definitions.append(self._parse_class_definition(self._previous_token()))
 
+        # Permitir definiciones de subrutinas en toplevel antes del bloque principal
+        while True:
+            token = self._current()
+            # Si vemos un identificador seguido de '(' lo interpretamos como
+            # la definición de una subrutina: `name(params) begin ... end`
+            if token.kind == TokenKind.IDENTIFIER:
+                next_index = self._index + 1
+                if next_index < len(self._tokens):
+                    next_token = self._tokens[next_index]
+                    if next_token.kind == TokenKind.SYMBOL and next_token.lexeme == "(":
+                        procedures.append(self._parse_procedure())
+                        continue
+            break
+
+        # Si el archivo contiene solo subrutinas (sin un programa begin..end),
+        # devolvemos el Programa con las subrutinas y cuerpo vacío.
+        if self._check(TokenKind.EOF) and procedures:
+            return ast_nodes.Program(
+                line=1,
+                column=1,
+                class_definitions=class_definitions,
+                declarations=declarations,
+                procedures=procedures,
+                body=[],
+            )
+
+        # Permitir definiciones de subrutinas en toplevel con la forma:
+        # nombre_subrutina(param1, param2)
+        # begin
+        #   ...
+        # end
+        while True:
+            # Si el token actual es IDENTIFIER y el siguiente token es '(',
+            # lo tratamos como la cabecera de una subrutina.
+            tok = self._current()
+            next_tok = self._peek(1)
+            if tok.kind == TokenKind.IDENTIFIER and next_tok.kind == TokenKind.SYMBOL and next_tok.lexeme == "(":
+                procedures.append(self._parse_procedure())
+                continue
+            break
+
         self._expect_keyword("begin", "Se esperaba 'begin' al iniciar el programa")
         body = self._parse_statement_block(end_keywords=("end",))
         end_token = self._expect_keyword("end", "Se esperaba 'end' para cerrar el programa")
@@ -99,6 +140,49 @@ class Parser:
         self._expect_symbol("}", "Falta '}' para cerrar la definición de clase")
         return ast_nodes.ClassDefinition(line=keyword.line, column=keyword.column, name=name_token.lexeme, attributes=attributes)
 
+    def _parse_procedure(self) -> ast_nodes.Procedure:
+        name_token = self._expect_identifier("Se esperaba el nombre de la subrutina")
+        # Lista de parámetros entre paréntesis
+        self._expect_symbol("(", "Falta '(' tras el nombre de la subrutina")
+        parameters: List[ast_nodes.Parameter] = []
+        if not self._check_symbol(")"):
+            # Cada parámetro puede ser un identificador, opcionalmente seguido
+            # de una anotación de arreglo como `A[n]` o un rango `A[n]..[m]`.
+            def _read_parameter() -> ast_nodes.Parameter:
+                token = self._expect_identifier("Se esperaba nombre de parámetro en la subrutina")
+                datatype: str | None = None
+                # Soportar anotación de arreglo entre corchetes, ej. A[n] o A[n]..[m]
+                if self._match_symbol("["):
+                    parts: List[str] = ["["]
+                    # recoger lexemas hasta ']' (no intentamos re-parsing de expresiones aquí)
+                    while not self._check_symbol("]") and not self._check(TokenKind.EOF):
+                        parts.append(self._current().lexeme)
+                        self._advance()
+                    self._expect_symbol("]", "Falta ']' en anotación de parámetro")
+                    parts.append("]")
+                    # Soportar '..' seguido de otra anotación entre corchetes
+                    if self._match_symbol(".."):
+                        parts.append("..")
+                        if self._match_symbol("["):
+                            while not self._check_symbol("]") and not self._check(TokenKind.EOF):
+                                parts.append(self._current().lexeme)
+                                self._advance()
+                            self._expect_symbol("]", "Falta ']' en anotación de parámetro")
+                            parts.append("]")
+                        else:
+                            # Dejar que el mensaje de error estándar aparezca
+                            raise ParserError("Falta '[' después de '..' en anotación de parámetro")
+                    datatype = "".join(parts)
+                return ast_nodes.Parameter(line=token.line, column=token.column, name=token.lexeme, datatype=datatype)
+
+            parameters.append(_read_parameter())
+            while self._match_symbol(","):
+                parameters.append(_read_parameter())
+        self._expect_symbol(")", "Falta ')' al cerrar la lista de parámetros")
+        # Cuerpo obligatorio usando begin...end
+        body = self._parse_mandatory_block()
+        return ast_nodes.Procedure(line=name_token.line, column=name_token.column, name=name_token.lexeme, parameters=parameters, body=body)
+
     def _parse_statement_block(self, end_keywords: Sequence[str]) -> List[ast_nodes.Statement]:
         statements: List[ast_nodes.Statement] = []
         while not self._check_keywords(end_keywords) and not self._check(TokenKind.EOF):
@@ -149,7 +233,8 @@ class Parser:
     def _parse_for_loop(self) -> ast_nodes.ForLoop:
         keyword = self._consume_keyword("for")
         iterator_token = self._expect_identifier("Se esperaba el identificador de control del for")
-        self._expect_symbol("🡨", "Falta el símbolo de asignación '🡨' en el for")
+        # Aceptar tanto la flecha Unicode '🡨' como la forma ASCII ':=' para inicializar el iterador
+        self._expect_symbol_any(["🡨", ":="], "Falta el símbolo de asignación '🡨' o ':=' en el for")
         start_expr = self._parse_expression()
         self._expect_keyword("to", "Se esperaba 'to' en el for")
         stop_expr = self._parse_expression()
@@ -427,6 +512,14 @@ class Parser:
             self._advance()
             return token
         raise ParserError(f"{message} en {token.line}:{token.column}")
+
+    def _peek(self, offset: int) -> Token:
+        idx = self._index + offset
+        if idx < 0:
+            idx = 0
+        if idx >= len(self._tokens):
+            return self._tokens[-1]
+        return self._tokens[idx]
 
     def _check(self, kind: TokenKind) -> bool:
         return self._current().kind == kind

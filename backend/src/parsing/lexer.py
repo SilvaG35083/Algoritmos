@@ -208,6 +208,12 @@ class Lexer:
         elif current == "🡨":
             lexeme = "🡨"
             next_char = ""
+        # Some editors/input methods produce a different left-arrow glyph (U+2190 '←').
+        # Normalize that variant to the canonical assignment arrow used in the parser.
+        elif current == "←":
+            lexeme = "🡨"
+            next_char = ""
+            next_char = ""
         elif current == "(":
             lexeme = "("
             next_char = ""

@@ -6,9 +6,8 @@ from dataclasses import dataclass
 from typing import Optional
 
 from analysis.complexity_engine import ComplexityEngine, ComplexityResult
-from llm.grammar_corrector import GrammarCorrector
-from parsing.parser import Parser, ParserConfig, ParserError
-from parsing.lexer import LexerError
+from analysis.extractor import extract_generic_recurrence
+from parsing.parser import Parser, ParserConfig
 from .reporter import AnalysisReport, Reporter
 from .validators import ValidatorSuite
 
@@ -85,20 +84,15 @@ class AnalysisPipeline:
                 raise
         
         # Depuración: imprimir el AST generado para inspección
-<<<<<<< HEAD
-        print("\n--- AST GENERADO POR EL PARSER ---")
-        print(program)
-        print("--- FIN AST ---\n")
-        
-=======
         #print("\n--- AST GENERADO POR EL PARSER ---")
         #print(program)
         #print("--- FIN AST ---\n")
->>>>>>> 32899c703b7254871488c21d2f4ac5648a7222df
         if self._config.enable_validations:
             self._validators.validate(program)
-        
-        result = self._engine.analyze(program, raw_source=corrected_source)
+        # Usar el extractor como única fuente: nos devuelve la recurrencia y
+        # la estimación estructural (ComplexityResult). Esto unifica rutas.
+        extraction = extract_generic_recurrence(program)
+        result = extraction.structural
         report = self._reporter.build(program, result)
         
         # Agregar información de corrección si aplica
