@@ -1,0 +1,16 @@
+// Torres de Hanoi
+// Complejidad Esperada: O(2^n) - Exponencial
+HANOI(n)
+begin
+    // Caso Base
+    If (n = 1) then
+    begin
+        HANOI <- 1; // Mover 1 disco
+    end
+    else
+    begin
+        // Dos llamadas recursivas de tamaño n-1
+        // T(n) = 2T(n-1) + 1
+        HANOI <- HANOI(n-1) + 1 + HANOI(n-1);
+    end;
+end

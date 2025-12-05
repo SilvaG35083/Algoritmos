@@ -1,0 +1,13 @@
+// Algoritmo de Sumatoria (Ejemplo basico de clase)
+// Complejidad Esperada: O(n)
+SUMA_GAUSS(n)
+begin
+    suma <- 0;
+    // Ciclo simple de 1 a n
+    for i <- 1 to n do
+    begin
+        suma <- suma + i;
+    end;
+    // "Retorno" del valor
+    SUMA_GAUSS <- suma;
+end

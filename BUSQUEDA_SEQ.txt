@@ -1,0 +1,21 @@
+// Busqueda Secuencial
+// Mejor caso: O(1), Peor caso: O(n)
+BUSQUEDA(A, n, x)
+begin
+    i <- 1;
+    encontrado <- 0; // Falso
+    
+    // Busca hasta encontrarlo o terminar el arreglo
+    while (i <= n) do
+    begin
+        If (A[i] = x) then
+        begin
+            encontrado <- 1; // True
+            i <- n + 1; // Forzar salida del bucle
+        end
+        else
+        begin
+            i <- i + 1;
+        end;
+    end;
+end

@@ -1,0 +1,8 @@
+SumaGauss(n)
+begin
+    suma <- 0;
+    for i <- 1 to n do
+    begin
+        suma <- suma + i;
+    end;
+end;

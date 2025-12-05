@@ -1,0 +1,15 @@
+// Algoritmo Factorial Recursivo
+FACTORIAL(n)
+begin
+    // Caso Base (O(1))
+    If (n = 0) then
+    begin
+        FACTORIAL <- 1; // Asigna el resultado
+    end
+    else // Caso Recursivo
+    begin
+        // Asigna el resultado de la expresion recursiva
+        // T(n-1) + O(1)
+        FACTORIAL <- n * FACTORIAL(n-1); // NO se usa 'CALL'
+    end;
+end
