@@ -52,7 +52,7 @@ const getLayoutedElements = (nodes, edges, direction = 'TB') => {
 };
 
 // --- 2. FUNCIÓN PARA APLANAR JSON ---
-const parseTreeToGraph = (node, parentId = null, nodes = [], edges = []) => {
+const parseTreeToGraph = (node, parentId = null, nodes = [], edges = [], depth = 0) => {
   if (!node) return;
 
   // Creamos el nodo visual
@@ -68,10 +68,11 @@ const parseTreeToGraph = (node, parentId = null, nodes = [], edges = []) => {
     },
     position: { x: 0, y: 0 }, // Dagre calculará esto después
     style: { 
-        background: '#fff', 
-        border: '1px solid #777', 
-        borderRadius: '8px',
-        width: 170
+        background: getNodeColor(depth), 
+        border: '1px solid #444', 
+        borderRadius: '10px',
+        width: 220,
+        boxShadow: '0 8px 16px rgba(0,0,0,0.2)'
     },
   });
 
@@ -87,13 +88,23 @@ const parseTreeToGraph = (node, parentId = null, nodes = [], edges = []) => {
   }
 
   // Recursión para los hijos
-  if (node.children && node.children.length > 0) {
-    node.children.forEach((child) => {
-      parseTreeToGraph(child, node.id, nodes, edges);
-    });
-  }
+  const children = node.children || [];
+  sortChildren(children).forEach((child) => parseTreeToGraph(child, node.id, nodes, edges, depth + 1));
 
   return { nodes, edges };
+};
+
+const sortChildren = (children = []) => {
+  return [...children].sort((a, b) => {
+    if (a.call?.toLowerCase().includes('partition')) return -1;
+    if (b.call?.toLowerCase().includes('partition')) return 1;
+    return (a.call || '').localeCompare(b.call || '');
+  });
+};
+
+const getNodeColor = (depth) => {
+  const palette = ['#eef2ff', '#dbeafe', '#c7d2fe', '#a5b4fc', '#818cf8', '#6366f1'];
+  return palette[depth % palette.length];
 };
 
 // --- 3. COMPONENTE PRINCIPAL ---

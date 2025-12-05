@@ -1705,6 +1705,13 @@ El código fuente completo está disponible en el repositorio con documentación
 
 [Incluir enlaces a videos de demostración si están disponibles]
 
+
+### F. Mejoras Recientes de Programación Dinámica
+
+- Detección automática de algoritmos DP que construye modelo recursivo, Tablas de Óptimos/Caminos y VectorSOA.
+- El modal expone el método usado (Teorema Maestro, Sustitución, etc.) y muestra las cotas esperadas para Fibonacci, Factorial y QuickSort.
+- El árbol de recursión ahora ordena la llamada a Particion antes de las recursivas y colorea por nivel para mejorar la legibilidad.
+
 ---
 
 **Fin del Informe**

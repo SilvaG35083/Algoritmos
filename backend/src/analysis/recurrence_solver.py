@@ -26,8 +26,9 @@ class RecurrenceSolution:
     upper: str
     lower: str
     justification: str
+    method: str = ""
     math_steps: list = None
-    
+
     def __post_init__(self):
         if self.math_steps is None:
             self.math_steps = []
@@ -82,6 +83,7 @@ def solve_with_master_theorem(relation: RecurrenceRelation) -> Optional[Recurren
             upper=f"O({n_crit})",
             lower=f"Ω({n_crit})",
             justification="Caso 1: f(n) es polinómicamente menor.",
+            method="Teorema Maestro",
             math_steps=[]
         )
 
@@ -93,6 +95,7 @@ def solve_with_master_theorem(relation: RecurrenceRelation) -> Optional[Recurren
             upper=f"O({n_crit} log n)",
             lower=f"Ω({n_crit} log n)",
             justification="Caso 2: f(n) y n^log_b(a) crecen igual.",
+            method="Teorema Maestro",
             math_steps=[]
         )
 
@@ -105,6 +108,7 @@ def solve_with_master_theorem(relation: RecurrenceRelation) -> Optional[Recurren
                 upper=f"O(n^{d})",
                 lower=f"Ω(n^{d})",
                 justification="Caso 3: f(n) domina y es regular.",
+                method="Teorema Maestro",
                 math_steps=[]
             )
     
@@ -191,6 +195,7 @@ def solve_iterative_direct(relation: RecurrenceRelation) -> Optional[RecurrenceS
             upper=f"O({fn})",
             lower=f"Ω({fn})",
             justification=f"Algoritmo iterativo: complejidad directa {fn}.",
+            method="Análisis Iterativo",
             math_steps=[]
         )
     return None
@@ -203,6 +208,7 @@ def solve_with_substitution(relation: RecurrenceRelation) -> Optional[Recurrence
             upper="O(n)",
             lower="Ω(n)",
             justification="Linear recurrence solved by telescoping.",
+            method="Sustitución",
             math_steps=[]
         )
     return None

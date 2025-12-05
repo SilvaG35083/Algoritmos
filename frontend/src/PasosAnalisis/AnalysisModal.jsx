@@ -33,9 +33,21 @@ export function AnalysisModal({ isOpen, onClose, result }) {
      return null; 
   }
 
-  const stepsOrder = ["lexer", "parser", "line_costs", "extraction", "solution"];
+  const baseSteps = ["lexer", "parser", "line_costs", "extraction", "solution"];
+  const dynamicData = result.steps.dynamic_programming;
+  // Mostrar PD siempre que el backend envíe la sección, sea caso genérico o especializado (Fibonacci)
+  const shouldShowDP = Boolean(dynamicData);
+  const stepsOrder = shouldShowDP ? [...baseSteps, "dynamic_programming"] : baseSteps;
   const stepKey = stepsOrder[currentStep];
   const stepData = result.steps[stepKey];
+  const displayTitle =
+    stepData?.title ||
+    (stepKey === "dynamic_programming" ? "Programación Dinámica" : "");
+  const displayDescription =
+    stepData?.description ||
+    (stepKey === "dynamic_programming"
+      ? "Modelo recursivo, Tablas de Óptimos/Caminos y Vector SOA."
+      : "");
 
   // Reiniciar el paso al cerrar (MOVER ANTES de usar)
   const handleClose = () => {
@@ -141,6 +153,20 @@ export function AnalysisModal({ isOpen, onClose, result }) {
               <p className="solution-desc">
                 "{stepData.complexity_desc || "Sin descripción disponible"}"
               </p>
+
+              <div className="solution-method">
+                <strong>Método usado:</strong> {stepData.method_used || "Heurística estructural"}
+              </div>
+              {stepData.expected && (
+                <div className="solution-expected">
+                  <p><strong>Referencias esperadas:</strong> {stepData.expected.description}</p>
+                  <ul>
+                    <li>Mejor caso: {stepData.expected.best}</li>
+                    <li>Caso promedio: {stepData.expected.average}</li>
+                    <li>Peor caso: {stepData.expected.worst}</li>
+                  </ul>
+                </div>
+              )}
             </div>
 
             {/* --- SECCIÓN 2: TARJETAS DE CASOS (GRID) --- */}
@@ -185,6 +211,111 @@ export function AnalysisModal({ isOpen, onClose, result }) {
             </div>
           </div>
         );
+      case "dynamic_programming":
+        return (
+          <div className="dp-content">
+            {/* Modelo recursivo */}
+            {stepData.modelo_recursivo && (
+              <div className="dp-section">
+                <h4>Modelo Recursivo</h4>
+                <pre>
+                  {Array.isArray(stepData.modelo_recursivo)
+                    ? stepData.modelo_recursivo.join("\n")
+                    : stepData.modelo_recursivo}
+                </pre>
+              </div>
+            )}
+
+            {/* Pseudocódigo */}
+            {stepData.pseudocodigo && (
+              <div className="dp-section">
+                <h4>Pseudocódigo (Top-Down con memoización)</h4>
+                <pre>
+                  {Array.isArray(stepData.pseudocodigo)
+                    ? stepData.pseudocodigo.join("\n")
+                    : stepData.pseudocodigo}
+                </pre>
+              </div>
+            )}
+
+            {/* Modelo genérico */}
+            {stepData.model && (
+              <div className="dp-section">
+                <h4>Modelo extraído</h4>
+                <p><strong>Recurrencia:</strong> {stepData.model.recurrence}</p>
+                <p><strong>Caso base:</strong> {stepData.model.base_case}</p>
+                <p><strong>Fórmula DP:</strong> {stepData.model.dp_formula}</p>
+                {stepData.model.modelo_recursivo && (
+                  <pre>
+                    {Array.isArray(stepData.model.modelo_recursivo)
+                      ? stepData.model.modelo_recursivo.join("\n")
+                      : stepData.model.modelo_recursivo}
+                  </pre>
+                )}
+              </div>
+            )}
+
+            {/* Tabla de óptimos */}
+            {stepData.TablaOptimos && (
+              <div className="dp-section">
+                <h4>Tabla de Óptimos</h4>
+                {stepData.TablaOptimos.description && (
+                  <p>{stepData.TablaOptimos.description}</p>
+                )}
+                {stepData.TablaOptimos.values_demo_n7 && (
+                  <pre>{JSON.stringify(stepData.TablaOptimos.values_demo_n7)}</pre>
+                )}
+                {stepData.TablaOptimos.transition && (
+                  <p><strong>Transición:</strong> {stepData.TablaOptimos.transition}</p>
+                )}
+              </div>
+            )}
+
+            {/* Tabla de caminos */}
+            {stepData.TablaCaminos && (
+              <div className="dp-section">
+                <h4>Tabla de Caminos</h4>
+                {stepData.TablaCaminos.description && (
+                  <p>{stepData.TablaCaminos.description}</p>
+                )}
+                {stepData.TablaCaminos.values_demo_n7 && (
+                  <pre>{JSON.stringify(stepData.TablaCaminos.values_demo_n7)}</pre>
+                )}
+                {stepData.TablaCaminos.update && (
+                  <p><strong>Actualización:</strong> {stepData.TablaCaminos.update}</p>
+                )}
+              </div>
+            )}
+
+            {/* Vector SOA */}
+            {stepData.VectorSOA && (
+              <div className="dp-section">
+                <h4>Vector SOA</h4>
+                {stepData.VectorSOA.description && (
+                  <p>{stepData.VectorSOA.description}</p>
+                )}
+                {stepData.VectorSOA.values_demo_n7 && (
+                  <pre>{JSON.stringify(stepData.VectorSOA.values_demo_n7)}</pre>
+                )}
+                {stepData.VectorSOA.steps && Array.isArray(stepData.VectorSOA.steps) && (
+                  <ul className="dp-steps">
+                    {stepData.VectorSOA.steps.map((s, i) => (
+                      <li key={i}>• {s}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
+            {/* Observaciones */}
+            {stepData.observations && (
+              <div className="dp-section">
+                <h4>Observaciones</h4>
+                <p>{stepData.observations}</p>
+              </div>
+            )}
+          </div>
+        );
       default: return null;
     }
   };
@@ -196,14 +327,14 @@ export function AnalysisModal({ isOpen, onClose, result }) {
         <div className="modal-header">
           <div>
             <small>Paso {currentStep + 1} / {stepsOrder.length}</small>
-            <h3>{stepData.title}</h3>
+            <h3>{displayTitle}</h3>
           </div>
           <button className="close-btn" onClick={handleClose}>&times;</button>
         </div>
 
         {/* CUERPO */}
         <div className="modal-body">
-            <p>{stepData.description}</p>
+            <p>{displayDescription}</p>
             {renderContent()}
         </div>
 
@@ -235,3 +366,4 @@ export function AnalysisModal({ isOpen, onClose, result }) {
     </div>
   );
 }
+     

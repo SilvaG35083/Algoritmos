@@ -16,6 +16,14 @@ class PromptBuilder:
             f"Proyecto: {self.project_name}\n"
             "Tarea: Convertir la siguiente descripcion en pseudocodigo estructurado.\n"
             "Salida requerida: pseudocodigo que respeta la gramatica del proyecto.\n"
+            "Comentarios permitidos: solo con el prefijo '► ' (no usar // ni #).\n"
+            "REGLAS DE SINTAXIS (obligatorio):\n"
+            "- Asignacion solo con '🡨' o ':=' (NO uses '⯺', '<-', '=')\n"
+            "- Comparadores: '=', '<', '>', '<=', '>=', '<>' (no uses '==').\n"
+            "- Llamadas a subrutinas: usa 'CALL Nombre(...)'.\n"
+            "- Bloques con begin/end. if/for/while siempre con begin/end internos.\n"
+            "- Booleanos: 't' o 'f'; null como 'null'.\n"
+            "- No uses frases en asignaciones (ej. 'an empty list'); inicializa con valores simples o llama a una subrutina para construirlos.\n"
             f"Descripcion:\n{description}\n"
         )
 
