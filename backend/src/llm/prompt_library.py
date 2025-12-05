@@ -31,33 +31,48 @@ class PromptBuilder:
             f"{estimation}\n"
         )
     
-    #metodo para simulacion "step by step"
+    # Metodo para simulacion "step by step" y Analisis Matematico
     def build_simulation_system_instruction(self) -> str:
-        """Define el comportamiento del LLM como motor de ejecución."""
+        """Define el comportamiento del LLM como motor de ejecución y analista matemático."""
         return (
-                "Eres un Motor de Ejecución de Algoritmos (Runtime Engine).\n"
-                "Tu objetivo es simular la ejecución paso a paso de un algoritmo.\n"
-                "REGLAS OBLIGATORIAS:\n"
-                "1. NO expliques nada. NO uses lenguaje natural.\n"
-                "2. Tu única salida debe ser un objeto JSON válido.\n"
-                "3. El JSON debe representar el Árbol de Ejecución (Trace Tree).\n"
-                "4. Usa la siguiente estructura exacta para el JSON:\n"
-                "{\n"
-                # --- AQUÍ ESTÁ EL CAMBIO CLAVE ---
-                '  "algorithm_type": "recursivo | iterativo | divide_y_venceras | programacion_dinamica | grafos | backtracking | voraz",\n'
-                '  "algorithm_name": "Nombre detectado",\n'
-                # ---------------------------------
-                '  "execution_tree": {\n'
-                '    "id": "root",\n'
-                '    "call": "fib(3)",\n'
-                '    "result": "2",\n'
-                '    "children": [\n'
-                '       { "id": "child_1", "call": "fib(2)", "result": "1", "children": [...] }\n'
-                '    ]\n'
-                '  },\n'
-                '  "total_steps": 5\n'
-                "}"
-            )
+            "Eres un Motor de Ejecución y Analista Matemático de Algoritmos Avanzado.\n"
+            "Tu tarea es doble: 1) Simular la ejecución paso a paso y 2) Realizar un análisis teórico formal.\n"
+            "REGLAS OBLIGATORIAS:\n"
+            "1. NO expliques nada en texto plano. Tu única salida debe ser un objeto JSON válido.\n"
+            "2. El análisis de complejidad debe identificar la técnica matemática adecuada (Teorema Maestro, etc).\n"
+            "3. Simula la ejecución completa para generar el árbol.\n"
+            "4. Usa la siguiente estructura EXACTA para el JSON:\n"
+            "{\n"
+            '  "algorithm_type": "recursivo | iterativo | divide_y_venceras | programacion_dinamica | grafos | backtracking | voraz",\n'
+            '  "algorithm_name": "Nombre detectado",\n'
+            # --- SECCIÓN 1: ANÁLISIS MATEMÁTICO ---
+            '  "theoretical_analysis": {\n'
+            '     "recurrence_relation": "T(n) = aT(n/b) + f(n) (ej: T(n) = 2T(n/2) + n)",\n'
+            '     "technique_used": "Teorema Maestro | Método del Árbol | Sustitución | Ecuación Característica | Conteo de Bucles",\n'
+            '     "technique_explanation": "Breve justificación (ej: a=2, b=2, d=1. log_b(a) = d. Caso 2 del Teorema Maestro)",\n'
+            '     "complexity": {\n'
+            '        "best_case": "Ω(...)",\n'
+            '        "average_case": "Θ(...)",\n'
+            '        "worst_case": "O(...)"\n'
+            '     },\n'
+            '     "complexity_explanation": {\n'
+            '        "best_case": "Explicación del mejor caso (cuando el algoritmo es más rápido)",\n'
+            '        "average_case": "Explicación del caso promedio (comportamiento típico)",\n'
+            '        "worst_case": "Explicación del peor caso (cuando el algoritmo es más lento)"\n'
+            '     }\n'
+            '  },\n'
+            # --- SECCIÓN 2: ÁRBOL DE EJECUCIÓN (No borrar esto, es vital para el gráfico) ---
+            '  "execution_tree": {\n'
+            '    "id": "root",\n'
+            '    "call": "fib(3)",\n'
+            '    "result": "2",\n'
+            '    "children": [\n'
+            '       { "id": "child_1", "call": "fib(2)", "result": "1", "children": [...] }\n'
+            '    ]\n'
+            '  },\n'
+            '  "total_steps": 5\n'
+            "}"
+        )
 
     def build_simulation_user_prompt(self, pseudocode: str, input_data: str) -> str:
         """Construye la petición con el código y la entrada específica."""
@@ -65,5 +80,5 @@ class PromptBuilder:
             f"Proyecto: {self.project_name} - Módulo de Simulación\n"
             f"Código a ejecutar:\n{pseudocode}\n\n"
             f"Entrada (Inputs): {input_data}\n\n"
-            "Genera el JSON del árbol de ejecución ahora."
+            "Genera el JSON completo con el análisis matemático y el árbol de ejecución ahora."
         )

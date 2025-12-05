@@ -88,7 +88,22 @@ end""",
             name="QuickSort",
             category="Recursivo",
             description="Divide y conquistarás con particionamiento en dos subproblemas.",
-            pseudocode="""Particion(A[n], p, r)
+            pseudocode="""
+    QuickSort(A[n], p, r)
+    begin
+        if (p < r) then
+        begin
+            q 🡨 CALL Particion(A, p, r)
+            
+            izq 🡨 q - 1
+            CALL QuickSort(A, p, izq)
+            
+            der 🡨 q + 1
+            CALL QuickSort(A, der, r)
+        end
+    end
+    
+    Particion(A[n], p, r)
     begin
         pivote 🡨 A[p]
         i 🡨 p
@@ -119,21 +134,6 @@ end""",
         A[j] 🡨 temp
         
         return j
-    end
-
-    QuickSort(A[n], p, r)
-    begin
-        if (p < r) then
-        begin
-            q 🡨 p
-            CALL Particion(A, p, r)
-            
-            izq 🡨 q - 1
-            CALL QuickSort(A, p, izq)
-            
-            der 🡨 q + 1
-            CALL QuickSort(A, der, r)
-        end
     end""",
             expected_complexity="O(n^2)",
         ),
