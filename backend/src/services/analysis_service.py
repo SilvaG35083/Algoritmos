@@ -4,6 +4,7 @@ from parsing.lexer import LexerError
 from analysis.recurrence_solver import RecurrenceSolver, RecurrenceRelation
 from analysis.extractor import extract_generic_recurrence
 from analysis.line_costs import LineCostAnalyzer
+from analysis.recurrence_solver import RecurrenceSolver
 import json
 
 def analyze_algorithm_flow(source_code: str) -> dict:
@@ -95,24 +96,49 @@ def analyze_algorithm_flow(source_code: str) -> dict:
     except Exception as e:
         return _error_response(f"Error en Costo por Línea: {str(e)}")
 
-    # --- PASO 3: EXTRACCIÓN ---
+    # --- PASO 3: EXTRACCIÓN Y ANÁLISIS MATEMÁTICO ---
     try:
 
         print("\n" + "🔹" * 30)
-        print("📍 PASO 3: EXTRACCIÓN (Modelado Matemático)")
+        print("📍 PASO 3: EXTRACCIÓN (Modelado Matemático Formal)")
         print("🔹" * 30)
 
         extraction = extract_generic_recurrence(ast)
         relation = extraction.relation
 
+        # 1. RESOLVER LA ECUACIÓN CON EL NUEVO SOLVER
+        solver = RecurrenceSolver()
+        math_solution = solver.solve(relation.recurrence)
+
+        # 2. PREPARAR DATOS PARA EL SEMÁFORO (Best/Avg/Worst)
+        # El solver nos da la notación formal (Theta) y la simple (Big-O).
+        # Construimos el objeto que espera el componente 'ComplexityAnalysisPanel'
+        complexity_simple = math_solution.get("complexity", "?")
+        formal_notation = math_solution.get("formal_notation", "?")
+        
+        # Lógica simple para inferir mejor caso (Ω) desde el promedio (Θ) si es posible
+        best_case_infer = formal_notation.replace("Θ", "Ω") if "Θ" in formal_notation else "?"
+
         response_steps["extraction"] = {
-            "title": "Modelado Matemático",
-            "description": "Ecuación extraída del análisis estático.",
+            "title": "Modelado Matemático Formal",
+            "description": "Ecuación extraída y resuelta analíticamente.",
             "equation": relation.recurrence,
-            "explanation": relation.notes
+            "explanation": relation.notes,
+            
+            # --- NUEVO OBJETO PARA EL FRONTEND ---
+            "mathematical_analysis": {
+                "recurrence_relation": math_solution.get("recurrence_relation", relation.recurrence),
+                "technique_used": math_solution.get("technique", "Análisis Heurístico"),
+                "technique_explanation": math_solution.get("explanation", "No se detectó un patrón matemático estándar."),
+                "complexity": {
+                    "best_case": best_case_infer,   # Ω
+                    "average_case": formal_notation, # Θ (Theta es la cota ajustada/promedio)
+                    "worst_case": complexity_simple  # O (Big-O es la cota superior/peor)
+                }
+            }
         }
 
-        # Añadimos también la estimación estructural producida internamente
+        # Añadimos también la estimación estructural producida internamente (Legacy/Respaldo)
         response_steps["structural_engine"] = {
             "title": "Estimación Estructural (ComplexityEngine)",
             "description": "Estimación basada en análisis estructural del AST.",
@@ -123,16 +149,17 @@ def analyze_algorithm_flow(source_code: str) -> dict:
         }
 
         # LOGS
-        print(f"✅ Relación de Recurrencia Detectada: {relation.recurrence}")
-        print(f"🔍 Detalles del objeto Relation: {relation}")
+        print(f"✅ Ecuación Detectada: {relation.recurrence}")
+        print(f"🧮 Técnica Aplicada: {math_solution.get('technique')}")
         print("📦 JSON PARA FRONTEND (Extraction):")
         print(json.dumps(response_steps["extraction"], indent=2, ensure_ascii=False))
-        print("📦 JSON PARA FRONTEND (Structural):")
-        print(json.dumps(response_steps["structural_engine"], indent=2, ensure_ascii=False))
 
     except Exception as e:
-        return _error_response(f"Error en Extracción: {str(e)}")
-
+        # Importante imprimir el error para depurar si el solver falla
+        import traceback
+        traceback.print_exc() 
+        return _error_response(f"Error en Extracción Matemática: {str(e)}")
+    
     # --- PASO 4: ANÁLISIS FINAL (Structural vs Solver) ---
     try:
 
@@ -140,16 +167,23 @@ def analyze_algorithm_flow(source_code: str) -> dict:
         print("📍 PASO 4: ANÁLISIS FINAL (Priorizar Structural sobre Solver)")
         print("🔸" * 30)
 
-        # Para algoritmos iterativos con llamadas en bucles, Structural es más preciso
-        # Solo usar Solver para algoritmos puramente recursivos
+        # Estrategia: Usar Solver SOLO para ecuaciones de recurrencia recursivas válidas
+        # Usar Structural para todo lo demás (iterativo, híbrido, patrones especiales)
         structural = extraction.structural
+        relation = extraction.relation
         
-        # Determinar si debemos usar Structural (iterativo complejo) o Solver (recursivo)
+        # Detectar si la ecuación es recursiva válida para el Solver
+        is_recursive_equation = (
+            "T(n-" in relation.recurrence or      # Recursión lineal: T(n) = T(n-1) + ...
+            "T(n/" in relation.recurrence or      # Divide y Conquista: T(n) = aT(n/b) + ...
+            relation.recurrence.count("T(") >= 2  # Múltiples llamadas: T(n) = T(n-1) + T(n-2)
+        )
+        
+        # Determinar si debemos usar Solver (recursivo puro) o Structural (resto)
         use_structural = (
-            "calls_in_loops" in structural.annotations or  # Hay llamadas en bucles
-            "n^2" in structural.average_case or            # Complejidad cuadrática o mayor
-            "n^3" in structural.average_case or
-            "log n" in structural.average_case             # Complejidad logarítmica
+            not is_recursive_equation or                   # No es ecuación recursiva
+            "calls_in_loops" in structural.annotations or  # Híbrido: llamadas en bucles
+            "iterativo" in relation.notes.lower()          # Explícitamente iterativo
         )
         
         if use_structural:
@@ -157,21 +191,62 @@ def analyze_algorithm_flow(source_code: str) -> dict:
             main_result = structural.average_case
             best_case = structural.best_case
             worst_case = structural.worst_case
+            
+            # CORRECCIÓN: Si hay llamadas en bucles, verificar la complejidad real
+            if "calls_in_loops" in structural.annotations:
+                annotation_text = structural.annotations.get("calls_in_loops_max_called", "")
+                # Extraer la complejidad combinada del annotation
+                if "combinada con bucles" in annotation_text:
+                    # El extractor ya calculó la complejidad correcta, usarla
+                    pass  # Ya está en structural.average_case
+            
             justification = structural.annotations.get("calls_in_loops_max_called", 
-                                                       structural.annotations.get("loop_summary", 
-                                                       "Análisis estructural basado en profundidad de bucles."))
+                                                      structural.annotations.get("loop_summary", 
+                                                      "Bucles anidados detectados."))
+            
+            # --- MEJORA: GENERAR MATEMÁTICAS PARA ITERATIVOS ---
+            # Si es O(n^2), construimos la notación de Sumatoria para que el panel se vea bonito
+            math_technique = "Conteo de Operaciones (Sumatoria)"
+            math_equation = "T(n) = \\sum_{i=1}^{n} T(\\text{Insertar})"
+            math_equation_display = "T(n) = Σ(i=1 hasta n) T(Insertar)"  # Versión legible sin LaTeX
+            math_explanation = "El algoritmo utiliza bucles anidados. El costo total es la suma del costo de cada iteración."
+
+            if "n^2" in main_result:
+                math_equation = "T(n) \\approx \\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}"
+                math_equation_display = "T(n) ≈ Σ(i=1 hasta n) i = n(n+1)/2"
+                math_explanation = "Se detectaron dos niveles de anidación. Esto corresponde a una serie aritmética cuadrática."
+            elif "n" in main_result:
+                math_equation = "T(n) = \\sum_{i=1}^{n} c = c \\cdot n"
+                math_equation_display = "T(n) = Σ(i=1 hasta n) c = c·n"
+                math_explanation = "Bucle simple con operaciones constantes."
+
+            # Sobreescribimos el objeto mathematical_analysis en extraction
+            # para que el Frontend tenga qué mostrar en el panel izquierdo
+            response_steps["extraction"]["mathematical_analysis"] = {
+                "recurrence_relation": math_equation_display,  # Versión legible
+                "recurrence_relation_latex": math_equation,     # Versión LaTeX para KaTeX
+                "technique_used": math_technique,
+                "technique_explanation": math_explanation,
+                "complexity": {
+                    "best_case": best_case.replace("O", "Ω").replace("Θ", "Ω"), 
+                    "average_case": main_result,
+                    "worst_case": worst_case
+                }
+            }
+            
             math_steps = []
+
         else:
             print("✅ Usando Solver (recursión o caso simple)")
-            solver = RecurrenceSolver.default()
-            solution = solver.solve(relation)
+            solver = RecurrenceSolver()
+            solution = solver.solve(relation.recurrence)
             
-            if solution:
-                main_result = solution.theta
-                best_case = solution.lower
-                worst_case = solution.upper
-                justification = solution.justification
-                math_steps = solution.math_steps or []
+            if solution and solution.get("complexity") != "Desconocida":
+                main_result = solution.get("formal_notation", "Θ(?)")
+                best_case = f"Ω({solution.get('complexity', '?').replace('O(', '').replace(')', '')})"
+                worst_case = solution.get("complexity", "O(?)")
+                justification = f"{solution.get('technique', 'Solver matemático')}: {solution.get('explanation', '')}"
+                math_steps = []
             else:
                 # Fallback a structural si solver falla
                 print("⚠️ Solver falló, usando Structural como fallback")

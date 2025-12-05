@@ -166,7 +166,7 @@ class ComplexityEngine:
     ) -> None:
         self._cost_model = cost_model or CostModel()
         self._patterns = patterns or PatternLibrary.default()
-        self._solver = solver or RecurrenceSolver.default()
+        self._solver = solver or RecurrenceSolver()
         self._config = config or EngineConfig()
 
     def analyze(self, program: ast_nodes.Program, raw_source: str | None = None) -> ComplexityResult:

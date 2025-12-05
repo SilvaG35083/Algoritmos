@@ -1,208 +1,180 @@
-"""Utilities for recurrence relations."""
-
-from __future__ import annotations
-
-from dataclasses import dataclass
-import math
 import re
-from typing import Callable, Dict, Optional
+import math
+from dataclasses import dataclass
+from typing import Optional, Dict, Any
 
-
-@dataclass(slots=True)
+@dataclass
 class RecurrenceRelation:
     """Simple representation of a recurrence T(n) = sum(a_i * T(n/b_i)) + f(n)."""
-
     identifier: str
     recurrence: str
     base_case: str
     notes: str = ""
 
-
-@dataclass(slots=True)
-class RecurrenceSolution:
-    """Stores the symbolic solution for a recurrence."""
-
-    theta: str
-    upper: str
-    lower: str
-    justification: str
-    math_steps: list = None
-    
-    def __post_init__(self):
-        if self.math_steps is None:
-            self.math_steps = []
-
+@dataclass
+class SolutionResult:
+    complexity: str
+    formal_notation: str
+    technique: str
+    explanation: str
+    recurrence_relation: str
 
 class RecurrenceSolver:
-    """Registry of solvers that can be composed."""
+    """
+    Motor matemático avanzado para resolver ecuaciones de recurrencia
+    usando Teorema Maestro, Ecuación Característica y Sustitución.
+    """
 
-    def __init__(self) -> None:
-        self._solvers: Dict[str, Callable[[RecurrenceRelation], Optional[RecurrenceSolution]]] = {}
+    def solve(self, equation: str) -> Dict[str, Any]:
+        """
+        Punto de entrada principal. Intenta aplicar solvers en orden.
+        """
+        clean_eq = equation.replace(" ", "")
+        
+        # 1. Intentar Teorema Maestro (Divide y Vencerás)
+        master_res = self._solve_master_theorem(clean_eq)
+        if master_res:
+            return master_res.__dict__
 
-    def register(self, name: str, handler: Callable[[RecurrenceRelation], Optional[RecurrenceSolution]]) -> None:
-        self._solvers[name] = handler
+        # 2. Intentar Ecuación Característica (Recursión Lineal Homogénea)
+        char_res = self._solve_characteristic_equation(clean_eq)
+        if char_res:
+            return char_res.__dict__
 
-    def solve(self, relation: RecurrenceRelation) -> Optional[RecurrenceSolution]:
-        """Try each registered solver until one returns a result."""
-        for handler in self._solvers.values():
-            result = handler(relation)
-            if result is not None:
-                return result
+        # 3. Intentar Método de Sustitución (Patrones lineales simples)
+        sub_res = self._solve_substitution_pattern(clean_eq)
+        if sub_res:
+            return sub_res.__dict__
+
+        # 4. Fallback
+        return {
+            "complexity": "Desconocida",
+            "formal_notation": "?",
+            "technique": "Análisis no concluyente",
+            "explanation": "La ecuación no coincide con los patrones matemáticos estándar soportados.",
+            "recurrence_relation": equation
+        }
+
+    def _solve_master_theorem(self, eq: str) -> Optional[SolutionResult]:
+        """
+        Resuelve T(n) = aT(n/b) + f(n)
+        Asumimos f(n) polinomial O(n^d)
+        """
+        # Regex para detectar T(n) = aT(n/b) + n^d
+        # Ejemplos: "2T(n/2)+n", "T(n/2)+1", "4T(n/2)+n^2"
+        
+        # Patrón simplificado
+        match = re.search(r'T\(n\)=(\d*)T\(n/(\d+)\)\+?(.*)', eq)
+        if not match:
+            return None
+
+        a_str, b_str, fn_str = match.groups()
+        a = int(a_str) if a_str else 1
+        b = int(b_str)
+        
+        # Analizar f(n) para sacar 'd'
+        d = 0
+        if 'n^' in fn_str:
+            try:
+                d = float(fn_str.split('^')[1])
+            except: d = 1
+        elif 'n' in fn_str:
+            d = 1
+        else:
+            d = 0 # Constante O(1)
+
+        # Cálculos del Teorema Maestro
+        log_b_a = math.log(a, b)
+        epsilon = 0.0001 # Para flotantes
+
+        explanation = f"Parámetros identificados: a={a}, b={b}, d={d}. Calculamos log_b(a) = {log_b_a:.2f}. "
+
+        if log_b_a > d:
+            # Caso 1
+            complexity = f"O(n^{log_b_a:.2f})"
+            if log_b_a.is_integer():
+                complexity = f"O(n^{int(log_b_a)})"
+            
+            return SolutionResult(
+                complexity=complexity,
+                formal_notation=f"Θ(n^log_{b}({a}))",
+                technique="Teorema Maestro (Caso 1)",
+                explanation=explanation + f"Como log_b(a) > d, domina la parte recursiva (las hojas del árbol).",
+                recurrence_relation=eq
+            )
+        
+        elif abs(log_b_a - d) < epsilon:
+            # Caso 2
+            d_fmt = int(d) if d.is_integer() else d
+            return SolutionResult(
+                complexity=f"O(n^{d_fmt} log n)",
+                formal_notation=f"Θ(n^{d_fmt} log n)",
+                technique="Teorema Maestro (Caso 2)",
+                explanation=explanation + f"Como log_b(a) ≈ d, el trabajo es uniforme en cada nivel del árbol.",
+                recurrence_relation=eq
+            )
+        
+        else:
+            # Caso 3
+            return SolutionResult(
+                complexity=f"O(n^{d})",
+                formal_notation=f"Θ(n^{d})",
+                technique="Teorema Maestro (Caso 3)",
+                explanation=explanation + f"Como log_b(a) < d, domina el trabajo en la raíz (f(n)).",
+                recurrence_relation=eq
+            )
+
+    def _solve_characteristic_equation(self, eq: str) -> Optional[SolutionResult]:
+        """
+        Resuelve T(n) = c1*T(n-1) + c2*T(n-2) ...
+        Ej: Fibonacci T(n) = T(n-1) + T(n-2)
+        """
+        # Detectar patrón de Fibonacci o similares: T(n) = A*T(n-1) + B*T(n-2)
+        if "T(n-1)+T(n-2)" in eq:
+            return SolutionResult(
+                complexity="O(1.618^n)",
+                formal_notation="Θ(φ^n)",
+                technique="Método de Ecuación Característica",
+                explanation="La ecuación T(n) = T(n-1) + T(n-2) genera la ecuación característica r^2 - r - 1 = 0. La raíz mayor es el número áureo φ ≈ 1.618.",
+                recurrence_relation=eq
+            )
+        
+        # Detectar patrón Torres de Hanoi: T(n) = 2T(n-1) + 1
+        match_hanoi = re.search(r'T\(n\)=(\d+)T\(n-1\)', eq)
+        if match_hanoi:
+            base = match_hanoi.group(1)
+            return SolutionResult(
+                complexity=f"O({base}^n)",
+                formal_notation=f"Θ({base}^n)",
+                technique="Método de Sustitución (Progresión Geométrica)",
+                explanation=f"Cada paso multiplica el trabajo por {base}. Es una serie geométrica que suma {base}^n.",
+                recurrence_relation=eq
+            )
+
         return None
 
-    @classmethod
-    def default(cls) -> "RecurrenceSolver":
-        solver = cls()
-        solver.register("iterative", solve_iterative_direct)
-        solver.register("master", solve_with_master_theorem)
-        solver.register("substitution", solve_with_substitution)
-        return solver
-
-
-def solve_with_master_theorem(relation: RecurrenceRelation) -> Optional[RecurrenceSolution]:
-    # 1. Parsing (Igual que antes)
-    params = _parse_master_params(relation.recurrence)
-    if not params: return None
-    a, b, d = params
-    
-    # 2. Cálculos
-    critical_exponent = math.log(a, b)
-    epsilon = 1e-9
-    
-    # Preparamos los pasos para el Frontend
-    # Ya no generamos pasos detallados aquí; el servicio decide qué mostrar.
-
-    # 3. Evaluación de Casos (Actualizada con steps)
-    
-    # CASO 1
-    if d < critical_exponent - epsilon:
-        n_crit = f"n^{round(critical_exponent, 2)}" if critical_exponent % 1 else f"n^{int(critical_exponent)}"
-        return RecurrenceSolution(
-            theta=f"Θ({n_crit})",
-            upper=f"O({n_crit})",
-            lower=f"Ω({n_crit})",
-            justification="Caso 1: f(n) es polinómicamente menor.",
-            math_steps=[]
-        )
-
-    # CASO 2
-    elif abs(d - critical_exponent) < epsilon:
-        n_crit = f"n^{int(d)}" if d % 1 == 0 else f"n^{d}"
-        return RecurrenceSolution(
-            theta=f"Θ({n_crit} log n)",
-            upper=f"O({n_crit} log n)",
-            lower=f"Ω({n_crit} log n)",
-            justification="Caso 2: f(n) y n^log_b(a) crecen igual.",
-            math_steps=[]
-        )
-
-    # CASO 3
-    elif d > critical_exponent + epsilon:
-        # Check de regularidad simplificado
-        if a < (b ** d):
-            return RecurrenceSolution(
-                theta=f"Θ(n^{d})",
-                upper=f"O(n^{d})",
-                lower=f"Ω(n^{d})",
-                justification="Caso 3: f(n) domina y es regular.",
-                math_steps=[]
+    def _solve_substitution_pattern(self, eq: str) -> Optional[SolutionResult]:
+        """
+        Resuelve patrones lineales simples T(n) = T(n-1) + c
+        """
+        # T(n) = T(n-1) + constante
+        if "T(n-1)" in eq and not "n" in eq.split("T(n-1)")[1]:
+             return SolutionResult(
+                complexity="O(n)",
+                formal_notation="Θ(n)",
+                technique="Método de Sustitución (Iterativo)",
+                explanation="El algoritmo reduce el problema en 1 en cada paso y hace trabajo constante. T(n) = c + c + ... (n veces).",
+                recurrence_relation=eq
             )
-    
-    return None
 
-def _parse_master_params(recurrence: str) -> Optional[tuple[float, float, float]]:
-    """
-    Analiza un string de recurrencia y extrae (a, b, d).
-    
-    Soporta formatos:
-      - "T(n) = 2T(n/2) + n"
-      - "T(n) = T(n/2) + 1"
-      - "T(n) = 4*T(n/2) + n^2"
-    
-    Retorna:
-      (a, b, d) donde:
-        a: Coeficiente de llamadas recursivas (default 1)
-        b: Divisor del tamaño del problema
-        d: Grado del polinomio f(n) = n^d
-    """
-    
-    # 1. Limpiar espacios en blanco para facilitar el regex
-    # "T(n) = 2 T(n/2) + n" -> "T(n)=2T(n/2)+n"
-    s = recurrence.replace(" ", "")
-    
-    # 2. Regex principal para separar las partes
-    # Explicación del patrón:
-    # T\(n\)=       -> Busca literalmente "T(n)="
-    # (\d*\*?)?     -> Grupo 1 (a): Busca un número opcional seguido de un * opcional (ej: "2*" o "2" o nada)
-    # T\(n/(\d+)\)  -> Grupo 2 (b): Busca "T(n/" seguido de un número y ")"
-    # \+            -> Busca el signo "+"
-    # (.*)          -> Grupo 3 (f(n)): Captura todo lo que sobra
-    pattern = r"T\(n\)=(\d*\*?)?T\(n/(\d+)\)\+(.*)"
-    
-    match = re.search(pattern, s, re.IGNORECASE)
-    
-    if not match:
-        return None # No coincide con el formato del Teorema Maestro
-    
-    a_str, b_str, fn_str = match.groups()
-    
-    # --- 3. Procesar 'a' (Multiplicador) ---
-    if not a_str:
-        a = 1.0 # Si no hay número antes de T, es 1 (ej: T(n) = T(n/2)...)
-    else:
-        # Quitamos el asterisco si existe ("2*" -> "2")
-        a = float(a_str.replace("*", ""))
-        
-    # --- 4. Procesar 'b' (Divisor) ---
-    b = float(b_str)
-    if b <= 1:
-        return None # El Teorema Maestro requiere b > 1 para reducir el problema
-        
-    # --- 5. Procesar 'd' (Grado de f(n)) ---
-    # Analizamos la parte derecha (fn_str) buscando n^k, n, o constantes.
-    
-    # Caso: O(n^k) o n^k
-    if "n^" in fn_str:
-        # Buscamos el número después de n^
-        d_match = re.search(r"n\^([\d\.]+)", fn_str)
-        if d_match:
-            d = float(d_match.group(1))
-        else:
-            d = 1.0 # Fallback raro
+        # T(n) = T(n-1) + n
+        if "T(n-1)+n" in eq:
+             return SolutionResult(
+                complexity="O(n^2)",
+                formal_notation="Θ(n^2)",
+                technique="Método de Sustitución (Serie Aritmética)",
+                explanation="T(n) = n + (n-1) + (n-2)... Es la suma de Gauss: n(n+1)/2.",
+                recurrence_relation=eq
+            )
             
-    # Caso: O(n) o n (Lineal)
-    elif "n" in fn_str:
-        d = 1.0
-        
-    # Caso: Constante (ej: "+ 1" o "+ O(1)")
-    else:
-        d = 0.0
-
-    return a, b, d
-
-def solve_iterative_direct(relation: RecurrenceRelation) -> Optional[RecurrenceSolution]:
-    """Handle iterative (non-recursive) complexity: T(n) = f(n)."""
-    # Pattern: T(n) = <expression without T(...)>
-    if "T(" not in relation.recurrence.split("=", 1)[1]:
-        # Extract f(n) after the =
-        fn = relation.recurrence.split("=", 1)[1].strip()
-        return RecurrenceSolution(
-            theta=f"Θ({fn})",
-            upper=f"O({fn})",
-            lower=f"Ω({fn})",
-            justification=f"Algoritmo iterativo: complejidad directa {fn}.",
-            math_steps=[]
-        )
-    return None
-
-def solve_with_substitution(relation: RecurrenceRelation) -> Optional[RecurrenceSolution]:
-    """Placeholder substitution solver."""
-    if relation.recurrence.endswith("+ n"):
-        return RecurrenceSolution(
-            theta="Θ(n)",
-            upper="O(n)",
-            lower="Ω(n)",
-            justification="Linear recurrence solved by telescoping.",
-            math_steps=[]
-        )
-    return None
+        return None

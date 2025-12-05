@@ -5,7 +5,8 @@ from typing import Any
 from parsing import ast_nodes
 from .recurrence_solver import RecurrenceRelation
 from .complexity_engine import ComplexityEngine, ComplexityResult
-
+#importa recurrence solver
+from .recurrence_solver import RecurrenceRelation
 
 @dataclass(slots=True)
 class ExtractionResult:
@@ -532,6 +533,9 @@ def extract_generic_recurrence(ast_root, func_name="self") -> ExtractionResult:
 
     # Si hay llamadas a funciones dentro de bucles, calcular la complejidad
     # de las funciones llamadas y ajustar la estimación estructural.
+    print(f"DEBUG: visitor.calls_in_loops = {visitor.calls_in_loops}")
+    print(f"DEBUG: structural.average_case ANTES de ajuste = {structural.average_case}")
+    
     if visitor.calls_in_loops:
         # Analizar las subrutinas definidas en el programa
         procedures = getattr(ast_root, "procedures", []) or []
@@ -613,9 +617,16 @@ def extract_generic_recurrence(ast_root, func_name="self") -> ExtractionResult:
             # SOLO sobrescribir si la complejidad combinada es MAYOR que la del motor
             # Esto respeta casos especiales detectados por el motor (salidas tempranas, etc.)
             current_avg_deg, current_avg_log = parse_theta(structural.average_case)
+            print(f"DEBUG EXTRACTOR: current={structural.average_case} → deg={current_avg_deg}, log={current_avg_log}")
+            print(f"DEBUG EXTRACTOR: combined → deg={combined_deg}, log={combined_log}")
+            print(f"DEBUG EXTRACTOR: Condición: {combined_deg} > {current_avg_deg} or ({combined_deg} == {current_avg_deg} and {combined_log} > {current_avg_log})")
+            
             if combined_deg > current_avg_deg or (combined_deg == current_avg_deg and combined_log > current_avg_log):
+                print(f"DEBUG EXTRACTOR: ✅ Actualizando a Θ(n^{combined_deg})")
                 structural.average_case = format_theta(combined_deg, combined_log)
                 structural.worst_case = f"O({_format_growth(combined_deg, combined_log)})"
+            else:
+                print(f"DEBUG EXTRACTOR: ❌ NO actualiza, manteniendo {structural.average_case}")
             
             # Para mejor caso: solo actualizar si la nueva complejidad es diferente y mayor que constante
             current_best_deg, current_best_log = parse_theta(structural.best_case)

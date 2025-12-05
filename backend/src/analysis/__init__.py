@@ -3,7 +3,7 @@
 from .complexity_engine import ComplexityEngine, ComplexityResult, EngineConfig
 from .cost_model import CostModel
 from .pattern_library import PatternLibrary
-from .recurrence_solver import RecurrenceRelation, RecurrenceSolver, RecurrenceSolution
+from .recurrence_solver import RecurrenceRelation, RecurrenceSolver
 
 __all__ = [
     "ComplexityEngine",
@@ -13,5 +13,4 @@ __all__ = [
     "PatternLibrary",
     "RecurrenceRelation",
     "RecurrenceSolver",
-    "RecurrenceSolution",
 ]
