@@ -292,9 +292,37 @@ export function SimulationModal({ isOpen, onClose, pseudocode, onSimulate, analy
     );
   };
 
-  // Analisis estático (nueva y vieja estructura)
+  // Analisis estático 
   const staticAnalysisCases = useMemo(() => {
     if (!analysisResult) return null;
+    
+    // Priority 1: New formal solver (extraction.mathematical_analysis)
+    if (analysisResult?.steps?.extraction?.mathematical_analysis?.complexity) {
+      const mathAnalysis = analysisResult.steps.extraction.mathematical_analysis;
+      const complexity = mathAnalysis.complexity;
+      return {
+        best: complexity.best_case,
+        average: complexity.average_case,
+        worst: complexity.worst_case,
+        title: mathAnalysis.technique_used || "Análisis Matemático",
+        description: mathAnalysis.technique_explanation,
+        recurrence_relation: mathAnalysis.recurrence_relation,
+      };
+    }
+    
+    // Priority 2: Legacy structural engine
+    if (analysisResult?.steps?.extraction?.structural_engine) {
+      const structuralEngine = analysisResult.steps.extraction.structural_engine;
+      return {
+        best: structuralEngine.best_case,
+        average: structuralEngine.average_case,
+        worst: structuralEngine.worst_case,
+        title: structuralEngine.title,
+        description: structuralEngine.description,
+      };
+    }
+    
+    // Priority 3: Old direct format
     if (analysisResult.average_case || analysisResult.best_case || analysisResult.worst_case) {
       return {
         best: analysisResult.best_case,
@@ -304,6 +332,8 @@ export function SimulationModal({ isOpen, onClose, pseudocode, onSimulate, analy
         description: analysisResult.description,
       };
     }
+    
+    // Priority 4: Old steps.solution format
     if (analysisResult?.steps?.solution) {
       const solution = analysisResult.steps.solution;
       return {
@@ -314,10 +344,36 @@ export function SimulationModal({ isOpen, onClose, pseudocode, onSimulate, analy
         description: solution.description,
       };
     }
+    
     return null;
   }, [analysisResult]);
 
   const theoreticalComplexity = useMemo(() => staticAnalysisCases?.average || null, [staticAnalysisCases]);
+
+  // Extraer el análisis matemático de la respuesta de simulación (/api/simulate)
+  const dynamicMathematicalAnalysis = useMemo(() => {
+    if (!treeData) return null;
+    
+    // El backend ahora envía steps.extraction.mathematical_analysis en la respuesta de /api/simulate
+    if (treeData?.steps?.extraction?.mathematical_analysis) {
+      const mathAnalysis = treeData.steps.extraction.mathematical_analysis;
+      // Asegurar que todos los campos estén disponibles explícitamente
+      return {
+        recurrence_relation: mathAnalysis.recurrence_relation,
+        recurrence_relation_latex: mathAnalysis.recurrence_relation_latex,
+        technique_used: mathAnalysis.technique_used,
+        technique_explanation: mathAnalysis.technique_explanation,
+        complexity: mathAnalysis.complexity
+      };
+    }
+    
+    // Fallback: Si viene en theoretical_analysis directamente (formato antiguo)
+    if (treeData?.theoretical_analysis) {
+      return treeData.theoretical_analysis;
+    }
+    
+    return null;
+  }, [treeData]);
 
   const inputN = useMemo(() => {
     try {
@@ -343,6 +399,10 @@ export function SimulationModal({ isOpen, onClose, pseudocode, onSimulate, analy
     setLoading(true);
     try {
       const result = await onSimulate(inputs.trim() || "{}");
+      console.log("🎯 SimulationModal - Resultado de /api/simulate:", result);
+      console.log("🎯 Estructura de steps:", result?.steps);
+      console.log("🎯 Extraction:", result?.steps?.extraction);
+      console.log("🎯 Mathematical Analysis:", result?.steps?.extraction?.mathematical_analysis);
       setTreeData(result);
     } catch (err) {
       setError(err.message);
@@ -560,7 +620,7 @@ export function SimulationModal({ isOpen, onClose, pseudocode, onSimulate, analy
                   </div>
                   <div className="card-body" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                     <MetricsPanel treeData={treeData} inputN={inputN} theoreticalComplexity={theoreticalComplexity} />
-                    <ComplexityAnalysisPanel analysisData={treeData.theoretical_analysis} />
+                    <ComplexityAnalysisPanel analysisData={dynamicMathematicalAnalysis} />
                   </div>
                 </div>
               </div>

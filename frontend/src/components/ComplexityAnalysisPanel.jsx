@@ -3,20 +3,24 @@ import React, { useState } from 'react';
 const ComplexityAnalysisPanel = ({ analysisData }) => {
   const [showExplanation, setShowExplanation] = useState(false);
   
-  console.log("📐 ComplexityAnalysisPanel - analysisData recibido:", analysisData);
-  
   // Si no hay datos de análisis matemático (ej. versiones viejas del backend), no mostramos nada
   if (!analysisData) return null;
 
   const { 
-    recurrence_relation, 
+    recurrence_relation,
+    recurrence_relation_latex,
     technique_used, 
     technique_explanation, 
     complexity 
   } = analysisData;
 
+  // Usar la versión legible si está disponible, sino usar la versión LaTeX
+  const displayRecurrence = recurrence_relation || recurrence_relation_latex || "No aplica";
+
+  console.log("📐 ComplexityAnalysisPanel - analysisData recibido:", analysisData);
   console.log("📐 Datos extraídos:");
   console.log("  - recurrence_relation:", recurrence_relation);
+  console.log("  - recurrence_relation_latex:", recurrence_relation_latex);
   console.log("  - technique_used:", technique_used);
   console.log("  - technique_explanation:", technique_explanation);
   console.log("  - complexity:", complexity);
@@ -204,7 +208,7 @@ const ComplexityAnalysisPanel = ({ analysisData }) => {
               borderRadius: '6px',
               border: '1px solid rgba(255, 255, 255, 0.06)'
             }}>
-              {recurrence_relation || "No aplica"}
+              {displayRecurrence}
             </code>
           </div>
           
