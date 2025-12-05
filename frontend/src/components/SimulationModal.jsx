@@ -1,79 +1,34 @@
 import { useState, useMemo, useEffect } from "react";
 import RecursionTree from "./RecursionTree.jsx";
 import MetricsPanel from "./MetricsPanel.jsx";
+import ComplexityAnalysisPanel from "./ComplexityAnalysisPanel.jsx";
 import "./SimulationModal.css";
 
 // Función para detectar el tipo de algoritmo
 const detectAlgorithmType = (pseudocode, analysisResult) => {
-  if (!pseudocode) return 'secuencial';
+  if (!pseudocode) return "secuencial";
   const code = pseudocode.toLowerCase();
-  // 1. FUENTE DE VERDAD: Si el Backend ya nos lo dijo, créemosle.
-  // (Asegúrate de que tu backend envíe este campo, ver solución 2)
-  if (analysisResult?.algorithm_type) {
-    return analysisResult.algorithm_type;
-  }
-  
-  // ------------------------------------------------------
-  // DETECCIONES ESPECÍFICAS (Alta Prioridad)
-  // ------------------------------------------------------
+  if (analysisResult?.algorithm_type) return analysisResult.algorithm_type;
 
-  // 2. Programación Dinámica (Suele tener bucles, por eso va PRIMERO)
-  // Buscamos patrones de tablas, memoización o asignaciones a arreglos dp
-  if (/dp\[|memo|table\[|tabla\[|matriz\[.*\].*=|dynamic|dinamica/i.test(code)) {
-    return 'programacion_dinamica';
-  }
+  // Específicos
+  if (/dp\[|memo|table\[|tabla\[|matriz\[.*\].*=|dynamic|dinamica/i.test(code)) return "programacion_dinamica";
+  if (/graph|grafo|nodo|arista|edge|vertex|adyacen|bfs|dfs|dijkstra|visitado/i.test(code)) return "grafos";
+  if (/backtrack|retroceso|podar|prune|prometedor|solucion.*parcial/i.test(code)) return "backtracking";
+  if (/divide|conquer|venceras|mitad|mid|pivote|partition|merge|mezcla|quicksort/i.test(code)) return "divide_y_venceras";
 
-  // 3. Grafos (Suelen tener bucles y recursión)
-  if (/graph|grafo|nodo|arista|edge|vertex|adyacen|bfs|dfs|dijkstra|visitado/i.test(code)) {
-    return 'grafos';
-  }
-
-  // 4. Backtracking (Suele ser recursivo + bucle)
-  // Buscamos palabras clave de poda o retroceso
-  if (/backtrack|retroceso|podar|prune|prometedor|solucion.*parcial/i.test(code)) {
-    return 'backtracking';
-  }
-
-  // 5. Divide y Vencerás (Suele ser recursivo)
-  if (/divide|conquer|venceras|mitad|mid|pivote|partition|merge|mezcla|quicksort/i.test(code)) {
-    return 'divide_y_venceras';
-  }
-
-  // ------------------------------------------------------
-  // DETECCIONES ESTRUCTURALES (Media Prioridad)
-  // ------------------------------------------------------
-
-  // 6. Recursión
-  // Mejoramos la regex para detectar llamadas a sí mismo sin depender de "function"
-  // Intentamos extraer el nombre de la primera palabra seguida de paréntesis "Nombre("
+  // Estructurales
   const functionNameMatch = pseudocode.match(/^\s*(?:function|procedimiento|funcion|algoritmo)?\s*([a-zA-Z0-9_]+)\s*\(/im);
   const functionName = functionNameMatch ? functionNameMatch[1] : null;
-
   if (functionName) {
-    // Buscamos si ese nombre se usa dentro del cuerpo (CALL Nombre o simplemente Nombre() )
-    // Excluimos la definición inicial
-    const bodyWithoutHeader = pseudocode.replace(functionNameMatch[0], ""); 
-    const recursionPattern = new RegExp(`\\b${functionName}\\s*\\(`, 'i');
-    
-    if (recursionPattern.test(bodyWithoutHeader)) {
-      return 'recursivo';
-    }
+    const bodyWithoutHeader = pseudocode.replace(functionNameMatch[0], "");
+    const recursionPattern = new RegExp(`\\b${functionName}\\s*\\(`, "i");
+    if (recursionPattern.test(bodyWithoutHeader)) return "recursivo";
   }
-  // Fallback: búsqueda simple de la palabra reservada
-  if (/recurs|invocar a s[íi] mismo/i.test(code)) return 'recursivo';
+  if (/recurs|invocar a s[íi] mismo/i.test(code)) return "recursivo";
 
-  // ------------------------------------------------------
-  // DETECCIONES GENÉRICAS (Baja Prioridad)
-  // ------------------------------------------------------
-
-  // 7. Iterativo (Solo si no fue nada de lo anterior)
-  const hasLoops = /\b(for|para|while|mientras|repeat|repetir|hasta|do|hacer)\b/i.test(code);
-  if (hasLoops) {
-    return 'iterativo';
-  }
-  
-  // 8. Por defecto
-  return 'secuencial';
+  // Genérico
+  if (/\b(for|para|while|mientras|repeat|repetir|hasta|do|hacer)\b/i.test(code)) return "iterativo";
+  return "secuencial";
 };
 
 // Configuración de títulos y descripciones por tipo
@@ -82,109 +37,76 @@ const algorithmTypeConfig = {
     title: "Árbol de Recursión",
     treeLabel: "Árbol de Llamadas Recursivas",
     description: "Visualización jerárquica de las llamadas recursivas",
-    icon: "🌳"
+    icon: "🌳",
   },
   divide_y_venceras: {
     title: "Árbol de Divide y Vencerás",
     treeLabel: "Descomposición del Problema",
     description: "Visualización de cómo se divide y resuelve el problema",
-    icon: "🔀"
+    icon: "🔀",
   },
   iterativo: {
     title: "Flujo de Ejecución Iterativo",
     treeLabel: "Secuencia de Iteraciones",
     description: "Visualización del flujo de control en bucles",
-    icon: "🔄"
+    icon: "🔄",
   },
   grafos: {
     title: "Exploración del Grafo",
     treeLabel: "Árbol/Grafo de Exploración",
     description: "Visualización del recorrido por el grafo",
-    icon: "🕸️"
+    icon: "🕸️",
   },
   programacion_dinamica: {
     title: "Tabla de Programación Dinámica",
     treeLabel: "Árbol de Subproblemas",
     description: "Visualización de subproblemas y memoización",
-    icon: "📊"
+    icon: "📊",
   },
   backtracking: {
     title: "Árbol de Backtracking",
     treeLabel: "Árbol de Búsqueda con Retroceso",
     description: "Visualización de exploración y retroceso",
-    icon: "↩️"
+    icon: "↩️",
   },
   voraz: {
     title: "Decisiones Voraces",
     treeLabel: "Secuencia de Decisiones",
     description: "Visualización de elecciones localmente óptimas",
-    icon: "⚡"
+    icon: "⚡",
   },
   secuencial: {
     title: "Flujo de Ejecución",
     treeLabel: "Árbol de Ejecución",
     description: "Visualización de la secuencia de ejecución",
-    icon: "📝"
-  }
+    icon: "📝",
+  },
 };
 
 const inputGuides = [
-  {
-    match: /factorial/i,
-    hint: "n entero >= 0. Ej: {\"n\": 5}",
-    placeholder: '{"n": 5}'
-  },
-  {
-    match: /fibonacci/i,
-    hint: "n entero >= 0. Ej: {\"n\": 6}",
-    placeholder: '{"n": 6}'
-  },
+  { match: /factorial/i, hint: 'n entero >= 0. Ej: {"n": 5}', placeholder: '{"n": 5}' },
+  { match: /fibonacci/i, hint: 'n entero >= 0. Ej: {"n": 6}', placeholder: '{"n": 6}' },
   {
     match: /hanoi/i,
-    hint: "n discos y nombres de postes. Ej: {\"n\": 3, \"origen\": \"A\", \"auxiliar\": \"B\", \"destino\": \"C\"}",
-    placeholder: '{"n": 3, "origen": "A", "auxiliar": "B", "destino": "C"}'
+    hint: 'n discos y nombres de postes. Ej: {"n": 3, "origen": "A", "auxiliar": "B", "destino": "C"}',
+    placeholder: '{"n": 3, "origen": "A", "auxiliar": "B", "destino": "C"}',
   },
-  {
-    match: /burbuja|merge|quick|ordenamiento|sort/i,
-    hint: "Arreglo y tamaño n. Ej: {\"arr\": [5,3,1,4], \"n\": 4}",
-    placeholder: '{"arr": [5,3,1,4], "n": 4}'
-  },
-  {
-    match: /busqueda.*sec|secuencial/i,
-    hint: "Arreglo, tamaño n y valor x. Ej: {\"arr\": [7,2,9], \"n\": 3, \"x\": 2}",
-    placeholder: '{"arr": [7,2,9], "n": 3, "x": 2}'
-  },
-  {
-    match: /busqueda.*bin/i,
-    hint: "Arreglo ORDENADO, tamaño n y valor x. Ej: {\"arr\": [1,3,5,7], \"n\": 4, \"x\": 5}",
-    placeholder: '{"arr": [1,3,5,7], "n": 4, "x": 5}'
-  },
-  {
-    match: /suma.*gauss/i,
-    hint: "n entero > 0. Ej: {\"n\": 10}",
-    placeholder: '{"n": 10}'
-  },
-  {
-    match: /suma.*arreglo|sumar.*elementos/i,
-    hint: "Arreglo y tamaño n. Ej: {\"arr\": [2,4,6], \"n\": 3}",
-    placeholder: '{"arr": [2,4,6], "n": 3}'
-  }
+  { match: /burbuja|merge|quick|ordenamiento|sort/i, hint: 'Arreglo y tamaño n. Ej: {"arr": [5,3,1,4], "n": 4}', placeholder: '{"arr": [5,3,1,4], "n": 4}' },
+  { match: /busqueda.*sec|secuencial/i, hint: 'Arreglo, tamaño n y valor x. Ej: {"arr": [7,2,9], "n": 3, "x": 2}', placeholder: '{"arr": [7,2,9], "n": 3, "x": 2}' },
+  { match: /busqueda.*bin/i, hint: 'Arreglo ORDENADO, tamaño n y valor x. Ej: {"arr": [1,3,5,7], "n": 4, "x": 5}', placeholder: '{"arr": [1,3,5,7], "n": 4, "x": 5}' },
+  { match: /suma.*gauss/i, hint: 'n entero > 0. Ej: {"n": 10}', placeholder: '{"n": 10}' },
+  { match: /suma.*arreglo|sumar.*elementos/i, hint: 'Arreglo y tamaño n. Ej: {"arr": [2,4,6], "n": 3}', placeholder: '{"arr": [2,4,6], "n": 3}' },
 ];
 
 function resolveInputGuide(pseudocode) {
   if (!pseudocode) return { hint: "Define tus parámetros en JSON.", placeholder: '{"n": 5}' };
   const guide = inputGuides.find((g) => g.match.test(pseudocode));
-  return (
-    guide || {
-      hint: "Define los parámetros en JSON. Ej: {\"n\": 5}",
-      placeholder: '{"n": 5}'
-    }
-  );
+  return guide || { hint: 'Define los parámetros en JSON. Ej: {"n": 5}', placeholder: '{"n": 5}' };
 }
 
+// Inferir parámetros solo de la firma principal (última antes de begin)
 function inferInputFields(pseudocode) {
   const text = pseudocode || "";
-  // Capturar todas las firmas con begin y elegir la ÚLTIMA (orquestadora)
   const sigRegex = /([A-Za-z0-9_]+)\s*\(([^)]*)\)\s*[\r\n]+\s*begin/gi;
   const signatures = [];
   let m;
@@ -214,9 +136,9 @@ function inferInputFields(pseudocode) {
     if (/(arr|vector|lista|array|a\[|\ba\b)/.test(lower)) return "[10,5,20,3,8]";
     if (/n/.test(lower)) return "5";
     if (/x|valor|key/.test(lower)) return "3";
-    if (/origen|from/.test(lower)) return "\"A\"";
-    if (/destino|to/.test(lower)) return "\"C\"";
-    if (/auxiliar|aux/.test(lower)) return "\"B\"";
+    if (/origen|from/.test(lower)) return '"A"';
+    if (/destino|to/.test(lower)) return '"C"';
+    if (/auxiliar|aux/.test(lower)) return '"B"';
     if (/matriz|matrix|tabla|dp/.test(lower)) return "[[1,2],[3,4]]";
     return "1";
   };
@@ -227,6 +149,7 @@ function inferInputFields(pseudocode) {
       fields.push({ name, label, placeholder });
     }
   };
+
   const code = (pseudocode || "").toLowerCase();
 
   if (params.length) {
@@ -236,19 +159,12 @@ function inferInputFields(pseudocode) {
     });
   } else {
     add("n", "n (tamaño/iteraciones)", "5");
-    // Solo heurísticas si no hay firma detectada
-    if (/arreglo|array|vector|lista|arr\[/i.test(code)) {
-      add("arr", "arreglo", "[10,5,20,3,8]");
-    }
-    if (/busqueda|buscar|valor|x\b/i.test(code)) {
-      add("x", "valor a buscar", "3");
-    }
-    if (/origen/.test(code)) add("origen", "origen", "\"A\"");
-    if (/auxiliar/.test(code)) add("auxiliar", "auxiliar", "\"B\"");
-    if (/destino/.test(code)) add("destino", "destino", "\"C\"");
-    if (/matriz|matrix|tabla|dp/.test(code)) {
-      add("matriz", "matriz/tabla", "[[1,2],[3,4]]");
-    }
+    if (/arreglo|array|vector|lista|arr\[/i.test(code)) add("arr", "arreglo", "[10,5,20,3,8]");
+    if (/busqueda|buscar|valor|x\b/i.test(code)) add("x", "valor a buscar", "3");
+    if (/origen/.test(code)) add("origen", "origen", '"A"');
+    if (/auxiliar/.test(code)) add("auxiliar", "auxiliar", '"B"');
+    if (/destino/.test(code)) add("destino", "destino", '"C"');
+    if (/matriz|matrix|tabla|dp/.test(code)) add("matriz", "matriz/tabla", "[[1,2],[3,4]]");
   }
 
   return fields.length ? fields : [{ name: "n", label: "n", placeholder: "5" }];
@@ -266,31 +182,22 @@ function parseUserValue(raw) {
   if (raw === undefined || raw === null) return raw;
   const val = String(raw).trim();
   if (val === "") return "";
-  // JSON object/array literal
   if ((val.startsWith("{") && val.endsWith("}")) || (val.startsWith("[") && val.endsWith("]"))) {
     try {
       return JSON.parse(val);
     } catch {
-      // fall through
+      /* fallthrough */
     }
   }
-  // comma separated numbers without brackets -> wrap as array
   if (!val.startsWith("[") && val.includes(",") && /^[0-9,\s.-]+$/.test(val)) {
     try {
       return JSON.parse(`[${val}]`);
     } catch {
-      // fall through
+      /* fallthrough */
     }
   }
-  // boolean/null
-  if (/^(true|false|null)$/i.test(val)) {
-    return JSON.parse(val.toLowerCase());
-  }
-  // number
-  if (!isNaN(Number(val))) {
-    return Number(val);
-  }
-  // default: string
+  if (/^(true|false|null)$/i.test(val)) return JSON.parse(val.toLowerCase());
+  if (!isNaN(Number(val))) return Number(val);
   return val;
 }
 
@@ -305,24 +212,13 @@ export function SimulationModal({ isOpen, onClose, pseudocode, onSimulate, analy
   const [error, setError] = useState(null);
   const [structuredInputs, setStructuredInputs] = useState({});
 
-  // Detectar tipo de algoritmo
   const algorithmType = useMemo(() => {
-    // 1. PRIORIDAD MÁXIMA: Si ya simulamos y el Backend nos dijo qué tipo es
-    if (treeData?.algorithm_type) {
-    return treeData.algorithm_type;
-    }
-    // 2. FALLBACK: Si no hemos simulado aún, adivinamos con la función auxiliar
+    if (treeData?.algorithm_type) return treeData.algorithm_type;
     return detectAlgorithmType(pseudocode, analysisResult);
-        
-   }, [pseudocode, analysisResult, treeData]); 
+  }, [pseudocode, analysisResult, treeData]);
 
-  // Obtener configuración del tipo
-  const typeConfig = useMemo(() => {
-    return algorithmTypeConfig[algorithmType] || algorithmTypeConfig.secuencial;
-  }, [algorithmType]);
-
+  const typeConfig = useMemo(() => algorithmTypeConfig[algorithmType] || algorithmTypeConfig.secuencial, [algorithmType]);
   const inputGuide = useMemo(() => resolveInputGuide(pseudocode), [pseudocode]);
-
   const suggestedFields = useMemo(() => inferInputFields(pseudocode), [pseudocode]);
 
   const exampleJson = useMemo(() => {
@@ -344,13 +240,9 @@ export function SimulationModal({ isOpen, onClose, pseudocode, onSimulate, analy
   }, [pseudocode, suggestedFields, exampleJson]);
 
   const isRecursiveLike = useMemo(
-    () =>
-      ["recursivo", "divide_y_venceras", "backtracking", "programacion_dinamica"].includes(
-        algorithmType
-      ),
+    () => ["recursivo", "divide_y_venceras", "backtracking", "programacion_dinamica"].includes(algorithmType),
     [algorithmType]
   );
-
   const shouldShowTree = Boolean(treeData?.execution_tree) && isRecursiveLike;
 
   const stepTrace = useMemo(() => {
@@ -368,9 +260,7 @@ export function SimulationModal({ isOpen, onClose, pseudocode, onSimulate, analy
       const indent = depth ? "·".repeat(depth) + " " : "";
       const label = `${indent}${node.call || "call"} -> ${node.result ?? ""}`.trim();
       acc.push(label);
-      if (Array.isArray(node.children)) {
-        node.children.forEach((c) => walk(c, depth + 1));
-      }
+      if (Array.isArray(node.children)) node.children.forEach((c) => walk(c, depth + 1));
     };
     walk(t, 0);
     return acc.length ? acc : null;
@@ -381,7 +271,6 @@ export function SimulationModal({ isOpen, onClose, pseudocode, onSimulate, analy
     const line = isObj ? item.line || item.line_number : null;
     const action = isObj ? item.action || item.detail || item.comparison : item;
     const vars = isObj ? item.vars || item.variables || item.state : null;
-
     return (
       <div key={idx} className="trace-item-card">
         <div className="trace-item-header">
@@ -403,18 +292,33 @@ export function SimulationModal({ isOpen, onClose, pseudocode, onSimulate, analy
     );
   };
 
-  // Extraer la complejidad teórica del análisis estático
-  const theoreticalComplexity = useMemo(() => {
-    console.log("🔍 analysisResult completo:", analysisResult);
-    if (!analysisResult?.steps?.solution?.complexity) {
-      console.log("⚠️ No se encontró complejidad en analysisResult.steps.solution.complexity");
-      return null;
+  // Analisis estático (nueva y vieja estructura)
+  const staticAnalysisCases = useMemo(() => {
+    if (!analysisResult) return null;
+    if (analysisResult.average_case || analysisResult.best_case || analysisResult.worst_case) {
+      return {
+        best: analysisResult.best_case,
+        average: analysisResult.average_case,
+        worst: analysisResult.worst_case,
+        title: analysisResult.title,
+        description: analysisResult.description,
+      };
     }
-    console.log("✅ Complejidad encontrada:", analysisResult.steps.solution.complexity);
-    return analysisResult.steps.solution.complexity;
+    if (analysisResult?.steps?.solution) {
+      const solution = analysisResult.steps.solution;
+      return {
+        best: solution.cases?.best || solution.complexity,
+        average: solution.cases?.average || solution.complexity || solution.main_result,
+        worst: solution.cases?.worst || solution.complexity,
+        title: solution.title,
+        description: solution.description,
+      };
+    }
+    return null;
   }, [analysisResult]);
 
-  // Extraer el valor de 'n' de los inputs
+  const theoreticalComplexity = useMemo(() => staticAnalysisCases?.average || null, [staticAnalysisCases]);
+
   const inputN = useMemo(() => {
     try {
       const parsed = JSON.parse(inputs || "{}");
@@ -427,19 +331,16 @@ export function SimulationModal({ isOpen, onClose, pseudocode, onSimulate, analy
   if (!isOpen) return null;
 
   const handleGenerate = async () => {
-    // Validar JSON
     if (inputs.trim()) {
       try {
         JSON.parse(inputs);
       } catch {
-        setError("Formato de inputs inválido. Usa JSON válido, ej: {\"n\": 5}");
+        setError('Formato de inputs inválido. Usa JSON válido, ej: {"n": 5}');
         return;
       }
     }
-
     setError(null);
     setLoading(true);
-    
     try {
       const result = await onSimulate(inputs.trim() || "{}");
       setTreeData(result);
@@ -463,11 +364,11 @@ export function SimulationModal({ isOpen, onClose, pseudocode, onSimulate, analy
         {/* Header */}
         <div className="simulation-modal-header">
           <div>
-            <small className="section-eyebrow">
-              Simulación · Tipo: {algorithmType.replace('_', ' ').toUpperCase()}
-            </small>
-            <h3>{typeConfig.icon} {typeConfig.title}</h3>
-            <p className="text-muted" style={{ margin: '0.25rem 0 0', fontSize: '0.85rem' }}>
+            <small className="section-eyebrow">Simulación · Tipo: {algorithmType.replace("_", " ").toUpperCase()}</small>
+            <h3>
+              {typeConfig.icon} {typeConfig.title}
+            </h3>
+            <p className="text-muted" style={{ margin: "0.25rem 0 0", fontSize: "0.85rem" }}>
               {typeConfig.description}
             </p>
           </div>
@@ -476,10 +377,9 @@ export function SimulationModal({ isOpen, onClose, pseudocode, onSimulate, analy
           </button>
         </div>
 
-        {/* Body con dos columnas */}
+        {/* Body */}
         <div className="simulation-modal-body-wrapper">
           <div className="simulation-modal-body">
-            {/* Columna Izquierda: Algoritmo */}
             <div className="simulation-left-panel">
               <div className="panel-section">
                 <h4>Pseudocódigo</h4>
@@ -503,9 +403,11 @@ export function SimulationModal({ isOpen, onClose, pseudocode, onSimulate, analy
                         onChange={(e) =>
                           setStructuredInputs((prev) => {
                             const next = { ...prev, [field.name]: e.target.value };
-                            setInputs(buildJsonString(Object.fromEntries(
-                              Object.entries(next).map(([k,v]) => [k, parseUserValue(v)])
-                            )));
+                            setInputs(
+                              buildJsonString(
+                                Object.fromEntries(Object.entries(next).map(([k, v]) => [k, parseUserValue(v)]))
+                              )
+                            );
                             return next;
                           })
                         }
@@ -516,11 +418,7 @@ export function SimulationModal({ isOpen, onClose, pseudocode, onSimulate, analy
                 </div>
 
                 <div className="input-actions">
-                  <button
-                    className="btn btn-ghost"
-                    onClick={() => setInputs(exampleJson)}
-                    type="button"
-                  >
+                  <button className="btn btn-ghost" onClick={() => setInputs(exampleJson)} type="button">
                     Usar ejemplo sugerido
                   </button>
                   <button
@@ -545,23 +443,13 @@ export function SimulationModal({ isOpen, onClose, pseudocode, onSimulate, analy
                   placeholder={inputGuide.placeholder}
                 />
 
-                <button
-                  className="btn btn-primary"
-                  onClick={handleGenerate}
-                  disabled={loading}
-                  style={{ width: "100%", marginTop: "0.5rem" }}
-                >
-                  {loading
-                    ? "Generando..."
-                    : isRecursiveLike
-                    ? "Generar árbol y seguimiento"
-                    : "Generar seguimiento"}
+                <button className="btn btn-primary" onClick={handleGenerate} disabled={loading} style={{ width: "100%", marginTop: "0.5rem" }}>
+                  {loading ? "Generando..." : isRecursiveLike ? "Generar árbol y seguimiento" : "Generar seguimiento"}
                 </button>
                 {error && <p className="error-message">{error}</p>}
               </div>
             </div>
 
-            {/* Columna Derecha: Árbol o aviso */}
             <div className="simulation-right-panel">
               <h4>{shouldShowTree ? typeConfig.treeLabel : "Seguimiento de ejecución"}</h4>
               {treeData ? (
@@ -579,86 +467,112 @@ export function SimulationModal({ isOpen, onClose, pseudocode, onSimulate, analy
                   {loading
                     ? "Generando visualización..."
                     : isRecursiveLike
-                    ? `Ingresa los inputs y genera el árbol + seguimiento para visualizar la ejecución recursiva`
-                    : `Ingresa los inputs y genera el seguimiento para visualizar la ejecución del algoritmo`}
+                    ? "Ingresa los inputs y genera el árbol + seguimiento para visualizar la ejecución recursiva"
+                    : "Ingresa los inputs y genera el seguimiento para visualizar la ejecución del algoritmo"}
                 </div>
               )}
             </div>
           </div>
 
-        {/* Sección de Métricas y Comparación (parte inferior) */}
-        {treeData && (
-          <div className="metrics-section">
-            <div className="metrics-header">
-              <h4>Análisis de Complejidad</h4>
-              <p className="text-muted">Comparación entre análisis estático y dinámico</p>
-            </div>
-            
-            <div className="metrics-comparison">
-              {/* Análisis Estático */}
-              <div className="analysis-card static-analysis">
-                <div className="card-header">
-                  <span className="badge badge-blue">Análisis Estático</span>
-                  <h5>Complejidad Teórica</h5>
+          {treeData && (
+            <div className="metrics-section">
+              <div className="metrics-header">
+                <h4>Reporte de Ejecución y Análisis</h4>
+                <p className="text-muted">Comparativa entre predicción estática, ejecución real y formalización matemática.</p>
+              </div>
+
+              <div className="metrics-comparison">
+                <div className="analysis-card static-analysis">
+                  <div className="card-header">
+                    <span className="badge badge-blue">Parser Estático</span>
+                    <h5>Predicción Sintáctica</h5>
+                  </div>
+                  <div className="card-body">
+                    {staticAnalysisCases ? (
+                      <>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.75rem", marginBottom: "1rem" }}>
+                          <div
+                            style={{
+                              padding: "0.75rem",
+                              background: "rgba(9, 10, 18, 0.5)",
+                              borderRadius: "6px",
+                              borderLeft: "3px solid #22c55e",
+                            }}
+                          >
+                            <div style={{ fontSize: "0.7rem", color: "#a1a1aa", textTransform: "uppercase", fontWeight: "bold", marginBottom: "0.25rem" }}>
+                              Mejor (Ω)
+                            </div>
+                            <div style={{ fontSize: "1.1rem", fontWeight: "bold", color: "#4ade80", fontFamily: "monospace" }}>{staticAnalysisCases.best || "-"}</div>
+                          </div>
+
+                          <div
+                            style={{
+                              padding: "0.75rem",
+                              background: "rgba(9, 10, 18, 0.5)",
+                              borderRadius: "6px",
+                              borderLeft: "3px solid #3b82f6",
+                            }}
+                          >
+                            <div style={{ fontSize: "0.7rem", color: "#a1a1aa", textTransform: "uppercase", fontWeight: "bold", marginBottom: "0.25rem" }}>
+                              Promedio (Θ)
+                            </div>
+                            <div style={{ fontSize: "1.1rem", fontWeight: "bold", color: "#60a5fa", fontFamily: "monospace" }}>{staticAnalysisCases.average || "-"}</div>
+                          </div>
+
+                          <div
+                            style={{
+                              padding: "0.75rem",
+                              background: "rgba(9, 10, 18, 0.5)",
+                              borderRadius: "6px",
+                              borderLeft: "3px solid #ef4444",
+                            }}
+                          >
+                            <div style={{ fontSize: "0.7rem", color: "#a1a1aa", textTransform: "uppercase", fontWeight: "bold", marginBottom: "0.25rem" }}>
+                              Peor (O)
+                            </div>
+                            <div style={{ fontSize: "1.1rem", fontWeight: "bold", color: "#f87171", fontFamily: "monospace" }}>{staticAnalysisCases.worst || "-"}</div>
+                          </div>
+                        </div>
+
+                        <p className="complexity-desc">
+                          {staticAnalysisCases.description || "Complejidad estimada analizando la estructura del código (bucles anidados, recursión simple)."}
+                          {inputN && (
+                            <span style={{ display: "block", marginTop: "0.5rem", color: "#a1a1aa" }}>Para n={inputN}, se espera un comportamiento asintótico acorde a estas cotas.</span>
+                          )}
+                        </p>
+                      </>
+                    ) : (
+                      <div style={{ textAlign: "center", padding: "2rem 1rem" }}>
+                        <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>⚠️</div>
+                        <p className="text-muted" style={{ fontSize: "0.9rem" }}>
+                          Sin análisis previo.
+                        </p>
+                        <p style={{ fontSize: "0.8rem", color: "#71717a" }}>Ejecuta el botón "Analizar" primero para comparar.</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="card-body">
-                  {theoreticalComplexity ? (
-                    <>
-                      <div className="complexity-value">{theoreticalComplexity}</div>
-                      <p className="complexity-desc">
-                        Calculada mediante análisis sintáctico del pseudocódigo.
-                        {inputN && (
-                          <span style={{ display: 'block', marginTop: '0.5rem', color: '#a1a1aa' }}>
-                            Para n={inputN}, se espera un comportamiento según esta complejidad.
-                          </span>
-                        )}
-                      </p>
-                    </>
-                  ) : (
-                    <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
-                      <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>⚠️</div>
-                      <p className="text-muted" style={{ marginBottom: '1rem', fontSize: '1rem', fontWeight: '600' }}>
-                        No hay análisis estático disponible
-                      </p>
-                      <p style={{ fontSize: '0.85rem', color: '#71717a', lineHeight: '1.6' }}>
-                        Para obtener una comparación completa:
-                        <br/>
-                        1. Cierra este modal
-                        <br/>
-                        2. Haz clic en el botón <strong style={{color: '#60a5fa'}}>"Analizar"</strong> en la pantalla principal
-                        <br/>
-                        3. Luego regresa a <strong style={{color: '#4ade80'}}>"Simular"</strong>
-                      </p>
-                    </div>
-                  )}
+
+                <div className="analysis-card dynamic-analysis">
+                  <div className="card-header">
+                    <span className="badge badge-green">Motor IA + Runtime</span>
+                    <h5>Simulación y Formalización</h5>
+                  </div>
+                  <div className="card-body" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                    <MetricsPanel treeData={treeData} inputN={inputN} theoreticalComplexity={theoreticalComplexity} />
+                    <ComplexityAnalysisPanel analysisData={treeData.theoretical_analysis} />
+                  </div>
                 </div>
               </div>
 
-              {/* Análisis Dinámico */}
-              <div className="analysis-card dynamic-analysis">
-                <div className="card-header">
-                  <span className="badge badge-green">Análisis Dinámico</span>
-                  <h5>Métricas Reales</h5>
+              {autoTrace && Array.isArray(autoTrace) && (
+                <div className="panel-section" style={{ marginTop: "1rem" }}>
+                  <h4>Traza paso a paso</h4>
+                  <div className="trace-list">{autoTrace.map((item, idx) => renderTraceItem(item, idx))}</div>
                 </div>
-                <div className="card-body">
-                  <MetricsPanel 
-                    treeData={treeData} 
-                    inputN={inputN}
-                    theoreticalComplexity={theoreticalComplexity}
-                  />
-                </div>
-              </div>
+              )}
             </div>
-            {autoTrace && Array.isArray(autoTrace) && (
-              <div className="panel-section" style={{ marginTop: "1rem" }}>
-                <h4>Traza paso a paso</h4>
-                <div className="trace-list">
-                  {autoTrace.map((item, idx) => renderTraceItem(item, idx))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+          )}
         </div>
       </div>
     </div>

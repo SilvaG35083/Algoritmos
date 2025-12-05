@@ -18,20 +18,25 @@ const nodeHeight = 60;
 
 const getLayoutedElements = (nodes, edges, direction = 'TB') => {
   const isHorizontal = direction === 'LR';
-  dagreGraph.setGraph({ rankdir: direction });
+  
+  // IMPORTANTE: Crear una nueva instancia del grafo para cada layout
+  // Esto evita que se acumulen nodos/edges de layouts anteriores
+  const g = new dagre.graphlib.Graph();
+  g.setDefaultEdgeLabel(() => ({}));
+  g.setGraph({ rankdir: direction });
 
   nodes.forEach((node) => {
-    dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
+    g.setNode(node.id, { width: nodeWidth, height: nodeHeight });
   });
 
   edges.forEach((edge) => {
-    dagreGraph.setEdge(edge.source, edge.target);
+    g.setEdge(edge.source, edge.target);
   });
 
-  dagre.layout(dagreGraph);
+  dagre.layout(g);
 
   const layoutedNodes = nodes.map((node) => {
-    const nodeWithPosition = dagreGraph.node(node.id);
+    const nodeWithPosition = g.node(node.id);
     return {
       ...node,
       targetPosition: isHorizontal ? 'left' : 'top',
@@ -46,7 +51,7 @@ const getLayoutedElements = (nodes, edges, direction = 'TB') => {
   return { nodes: layoutedNodes, edges };
 };
 
-// --- 2. FUNCIÓN PARA APLANAR TU JSON ---
+// --- 2. FUNCIÓN PARA APLANAR JSON ---
 const parseTreeToGraph = (node, parentId = null, nodes = [], edges = []) => {
   if (!node) return;
 
