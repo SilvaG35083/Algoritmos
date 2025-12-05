@@ -310,7 +310,7 @@ class LLMChatService:
 
     def _get_system_prompt(self) -> str:
         """Retorna el prompt del sistema para el análisis de algoritmos."""
-        return """Eres un experto analista de algoritmos. Tu tarea es:
+        base_prompt = """Eres un experto analista de algoritmos. Tu tarea es:
 
 1. Generar pseudocódigo estructurado que respete la gramática del proyecto
 2. Analizar la complejidad línea por línea
@@ -320,8 +320,8 @@ class LLMChatService:
 
 REGLAS DE GRAMÁTICA:
 - Usa begin/end para bloques
-- Usa 🡨 para asignaciones
-- FOR: for i 🡨 1 to n do begin ... end
+- Usa ÐY­ù para asignaciones
+- FOR: for i ÐY­ù 1 to n do begin ... end
 - WHILE: while condición do begin ... end
 - IF: if condición then begin ... end [else begin ... end]
 - CALL para llamadas a procedimientos
@@ -370,7 +370,33 @@ FORMATO DE RESPUESTA (JSON):
 }
 
 Sé detallado y preciso en tu análisis."""
+        return f"{base_prompt}\n\n{self._dynamic_programming_guidelines()}\n\n{self._recursion_tree_guidelines()}"
 
+    def _recursion_tree_guidelines(self) -> str:
+        return (
+            "REGLAS PARA EL ÁRBOL DE RECURSIÓN:\n"
+            "1. Siempre incluye la clave \"recursion_tree\" con campos {description, levels, total_cost} incluso para algoritmos DP o divide y vencerás.\n"
+            "2. Cada nivel debe contener nodos con el nombre de la llamada (ej: \"QuickSort(A, p, r)\", \"Particion(A, p, r)\") y el resultado estimado.\n"
+            "3. Para QuickSort asegúrate de describir el llamado a CALL Particion antes de las llamadas recursivas y asigna costos separados para cada subproblema.\n"
+            "4. Para Fibonacci o Factorial representa cada subtarea como un nodo con la entrada n y el valor devuelto, y mantén los niños ordenados (primero la llamada n-1, luego n-2).\n"
+            "5. Siempre que el árbol se construya desde la ejecución del LLM, incluye un resumen del método (recursivo, divide y vencerás, memoizado) en la descripción del árbol.\n"
+            "6. Exporta el árbol en el formato esperado por el frontend (nodos con id, call, result y children)."
+        )
+
+def _dynamic_programming_guidelines(self) -> str:
+    return (
+        "REGLAS DE PROGRAMACIÓN DINÁMICA:\n"
+        "► MODELO RECURSIVO F(i, j):\n"
+        "►               { caso_base            si condición\n"
+        "►  F(i, j) =    { opción_1             si condición\n"
+        "►               { max(opción_A, B)     en otro caso\n"
+        "1. Siempre expón el modelo recursivo antes de escribir el pseudocódigo, usando comentarios con el prefijo ► y representando cada caso como muestra el ejemplo anterior.\n"
+        "2. Describe e inicializa las tres estructuras obligatorias: TablaOptimos para almacenar valores, TablaCaminos para registrar decisiones y VectorSOA para reconstruir la solución paso a paso.\n"
+        "3. Si generas una solución Top-Down (recursiva con memoización), incluye Algoritmo Envolvente que inicialice TablaOptimos y llame a Algoritmo Recursivo, y que este último memoice en TablaOptimos y actualice TablaCaminos antes de devolver el valor.\n"
+        "4. Si generas una solución Bottom-Up (iterativa), inicializa los casos base en TablaOptimos y usa ciclos para llenar tanto TablaOptimos como TablaCaminos, determinando la decisión óptima en cada celda.\n"
+        "5. Concluye con ReconstruirSolucion que recorre TablaCaminos desde la meta al inicio y llena VectorSOA con los elementos que forman la subestructura óptima.\n"
+        "6. Respeta la gramática: asignaciones con ← o 🡨 (normalizadas como ÐY­ù), bloques con begin/end, comentarios con ►, llamadas con CALL Nombre(...), y evita frases largas en las asignaciones.\n"
+    )
     def _stub_response(self, query: str) -> dict:
         """Respuesta simulada cuando no hay API key."""
         return {

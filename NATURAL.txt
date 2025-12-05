@@ -1,4 +1,0 @@
-Algoritmo SumaGauss que recibe un numero n.
-Inicializa suma en 0.
-Recorre con un ciclo i desde 1 hasta n.
-En cada paso suma i a la variable suma.

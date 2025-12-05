@@ -85,6 +85,14 @@ class Statement(Node):
 
 
 @dataclass(slots=True)
+class NoOp(Statement):
+    """Sentencia vacía usada para tolerar líneas no soportadas (p.ej., let ...)."""
+
+    def children(self) -> Sequence["Node"]:
+        return ()
+
+
+@dataclass(slots=True)
 class Assignment(Statement):
     target: "Expression"
     value: "Expression"
