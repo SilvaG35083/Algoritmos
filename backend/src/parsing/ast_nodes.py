@@ -164,6 +164,15 @@ class Expression(Node):
 
 
 @dataclass(slots=True)
+class CallExpression(Expression):
+    callee: Expression
+    arguments: List[Expression] = field(default_factory=list)
+
+    def children(self) -> Sequence["Node"]:
+        return [self.callee, *self.arguments]
+
+
+@dataclass(slots=True)
 class Identifier(Expression):
     name: str
 

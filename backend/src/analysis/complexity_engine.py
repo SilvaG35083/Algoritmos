@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Sequence, Set
+from typing import Callable, Dict, Iterable, List, Sequence, Set
 
 from parsing import ast_nodes
 from .cost_model import CostModel
@@ -393,6 +393,9 @@ class ComplexityEngine:
             return self._expression_depends_on_input(expr.base, ignore) or self._expression_depends_on_input(expr.index, ignore)
         if isinstance(expr, ast_nodes.FieldAccess):
             return self._expression_depends_on_input(expr.base, ignore)
+        if isinstance(expr, ast_nodes.CallExpression):
+            callee_depends = False if isinstance(expr.callee, ast_nodes.Identifier) else self._expression_depends_on_input(expr.callee, ignore)
+            return callee_depends or any(self._expression_depends_on_input(arg, ignore) for arg in expr.arguments)
         if isinstance(expr, ast_nodes.RangeExpression):
             return self._expression_depends_on_input(expr.start, ignore) or self._expression_depends_on_input(expr.end, ignore)
         if isinstance(expr, ast_nodes.UnaryOperation):
@@ -400,6 +403,36 @@ class ComplexityEngine:
         if isinstance(expr, ast_nodes.BinaryOperation):
             return self._expression_depends_on_input(expr.left, ignore) or self._expression_depends_on_input(expr.right, ignore)
         return True
+
+    def _iter_call_expressions(self, expr: ast_nodes.Expression | None):
+        if expr is None:
+            return
+        if isinstance(expr, ast_nodes.CallExpression):
+            yield expr
+            for arg in expr.arguments:
+                yield from self._iter_call_expressions(arg)
+            yield from self._iter_call_expressions(expr.callee)
+        elif isinstance(expr, ast_nodes.BinaryOperation):
+            yield from self._iter_call_expressions(expr.left)
+            yield from self._iter_call_expressions(expr.right)
+        elif isinstance(expr, ast_nodes.UnaryOperation):
+            yield from self._iter_call_expressions(expr.operand)
+        elif isinstance(expr, ast_nodes.ArrayAccess):
+            yield from self._iter_call_expressions(expr.base)
+            yield from self._iter_call_expressions(expr.index)
+        elif isinstance(expr, ast_nodes.FieldAccess):
+            yield from self._iter_call_expressions(expr.base)
+        elif isinstance(expr, ast_nodes.RangeExpression):
+            yield from self._iter_call_expressions(expr.start)
+            yield from self._iter_call_expressions(expr.end)
+
+    def _callee_name(self, call_expr: ast_nodes.CallExpression) -> str | None:
+        callee = call_expr.callee
+        if isinstance(callee, ast_nodes.Identifier):
+            return callee.name
+        if isinstance(callee, ast_nodes.FieldAccess):
+            return callee.field_name
+        return None
 
     def _extract_loop_variable(self, expr: ast_nodes.Expression) -> str | None:
         if isinstance(expr, ast_nodes.BinaryOperation) and expr.operator in {"<", "<=", ">", ">=", "="}:
@@ -551,22 +584,58 @@ class ComplexityEngine:
     def _count_recursive_calls(self, proc: ast_nodes.Procedure) -> int:
         """Cuenta llamadas recursivas en un procedimiento."""
         count = 0
+        target_names = {proc.name.lower(), "self"}
         
         def visit(statements):
             nonlocal count
             for stmt in statements:
                 if isinstance(stmt, ast_nodes.CallStatement):
-                    if stmt.name.lower() == proc.name.lower() or stmt.name == 'self':
+                    if stmt.name.lower() in target_names:
                         count += 1
+                elif isinstance(stmt, ast_nodes.Assignment):
+                    count += self._count_calls_in_expression(stmt.value, target_names)
+                elif isinstance(stmt, ast_nodes.ReturnStatement):
+                    count += self._count_calls_in_expression(stmt.value, target_names)
                 elif isinstance(stmt, ast_nodes.IfStatement):
                     visit(stmt.then_branch)
                     visit(stmt.else_branch)
-                elif isinstance(stmt, (ast_nodes.WhileLoop, ast_nodes.ForLoop)):
+                elif isinstance(stmt, (ast_nodes.WhileLoop, ast_nodes.ForLoop, ast_nodes.RepeatUntilLoop)):
                     visit(stmt.body)
         
         visit(proc.body)
         return count
-    
+
+    def _count_calls_in_expression(self, expr: ast_nodes.Expression | None, target_names: Set[str]) -> int:
+        if expr is None:
+            return 0
+        total = 0
+        for call_expr in self._iter_call_expressions(expr):
+            callee = self._callee_name(call_expr)
+            if callee and callee.lower() in target_names:
+                total += 1
+        return total
+
+    def _expression_has_call(self, expr: ast_nodes.Expression | None, predicate: Callable[[str], bool]) -> bool:
+        if expr is None:
+            return False
+        for call_expr in self._iter_call_expressions(expr):
+            callee = self._callee_name(call_expr)
+            if callee and predicate(callee.lower()):
+                return True
+        return False
+
+    def _call_expr_has_linear_recursive(self, expr: ast_nodes.Expression | None, proc_name: str) -> bool:
+        if expr is None:
+            return False
+        target = proc_name.lower()
+        for call_expr in self._iter_call_expressions(expr):
+            callee = self._callee_name(call_expr)
+            if callee and callee.lower() == target:
+                for arg in call_expr.arguments:
+                    if isinstance(arg, ast_nodes.BinaryOperation) and arg.operator == "-":
+                        return True
+        return False
+
     def _has_partition_pattern(self, proc: ast_nodes.Procedure) -> bool:
         """Detecta si hay un patrón de partición (bucles con comparaciones de pivote)."""
         # Buscar recursivamente en statements anidados
@@ -581,6 +650,12 @@ class ComplexityEngine:
                 elif isinstance(stmt, ast_nodes.CallStatement):
                     # Buscar llamada a función de partición
                     if 'particion' in stmt.name.lower() or 'partition' in stmt.name.lower():
+                        return True
+                elif isinstance(stmt, ast_nodes.Assignment):
+                    if self._expression_has_call(stmt.value, lambda name: 'particion' in name or 'partition' in name):
+                        return True
+                elif isinstance(stmt, ast_nodes.ReturnStatement):
+                    if self._expression_has_call(stmt.value, lambda name: 'particion' in name or 'partition' in name):
                         return True
                 elif isinstance(stmt, ast_nodes.IfStatement):
                     if search_statements(stmt.then_branch):
@@ -656,6 +731,12 @@ class ComplexityEngine:
                         for arg in stmt.arguments:
                             if isinstance(arg, ast_nodes.BinaryOperation) and arg.operator == "-":
                                 return True
+                elif isinstance(stmt, ast_nodes.Assignment):
+                    if self._call_expr_has_linear_recursive(stmt.value, proc.name):
+                        return True
+                elif isinstance(stmt, ast_nodes.ReturnStatement):
+                    if self._call_expr_has_linear_recursive(stmt.value, proc.name):
+                        return True
                 elif isinstance(stmt, ast_nodes.IfStatement):
                     if search(stmt.then_branch) or search(stmt.else_branch):
                         return True

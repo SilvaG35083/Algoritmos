@@ -7,7 +7,8 @@ from typing import Optional
 
 from analysis.complexity_engine import ComplexityEngine, ComplexityResult
 from analysis.extractor import extract_generic_recurrence
-from parsing.parser import Parser, ParserConfig
+from parsing.lexer import LexerError
+from parsing.parser import Parser, ParserConfig, ParserError
 from .reporter import AnalysisReport, Reporter
 from .validators import ValidatorSuite
 

@@ -41,6 +41,9 @@ RESERVED_WORDS: Sequence[str] = (
     "class",
     "mod",
     "div",
+    "with",
+    "procedure",
+    "function",
     "return",
     "print",
     "t",
@@ -194,6 +197,8 @@ class Lexer:
             lexeme = ">="
         elif current == "<" and next_char == ">":
             lexeme = "<>"
+        elif current == "<" and next_char == "-":
+            lexeme = "<-"
         elif current == ":" and next_char == "=":
             lexeme = ":="
         elif current == "≤":

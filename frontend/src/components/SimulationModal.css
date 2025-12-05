@@ -100,6 +100,77 @@
   padding: 1rem;
 }
 
+.inputs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.input-field-group small {
+  display: block;
+  color: #a1a1aa;
+  margin-bottom: 0.25rem;
+}
+
+.input-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin: 0.25rem 0;
+}
+
+.trace-list {
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid #1f2733;
+  border-radius: 8px;
+  padding: 12px;
+  background: #0b0f14;
+}
+
+.trace-item-card {
+  padding: 10px;
+  border: 1px solid #1f2733;
+  border-radius: 8px;
+  background: #0f131a;
+  margin-bottom: 10px;
+}
+
+.trace-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.trace-line {
+  color: #a1a1aa;
+  font-size: 0.85rem;
+}
+
+.trace-action {
+  color: #e5e7eb;
+  font-size: 0.95rem;
+  margin-bottom: 8px;
+}
+
+.trace-vars {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 6px;
+}
+
+.trace-var {
+  padding: 6px 8px;
+  border: 1px solid #1f2733;
+  border-radius: 6px;
+  background: #0b0f14;
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+}
+
 .panel-section h4 {
   margin: 0 0 0.75rem;
   color: #d4d4d8;

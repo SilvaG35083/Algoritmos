@@ -1,9 +1,13 @@
-import os
-from dotenv import load_dotenv, find_dotenv
-import google.generativeai as genai
 import asyncio
+import os
 
-async def test():
+import pytest
+import google.generativeai as genai
+from dotenv import find_dotenv, load_dotenv
+
+
+@pytest.mark.skip(reason="Prueba de diagnóstico manual; se omite en la suite automática.")
+async def test_connection_diagnostic():
     print("--- INICIANDO DIAGNÓSTICO ---")
     
     # 1. Buscar .env
@@ -37,4 +41,4 @@ async def test():
         print(f"❌ ERROR CONECTANDO A GOOGLE: {e}")
 
 if __name__ == "__main__":
-    asyncio.run(test())
+    asyncio.run(test_connection_diagnostic())
