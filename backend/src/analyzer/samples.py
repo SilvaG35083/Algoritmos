@@ -19,155 +19,180 @@ def load_samples() -> List[SampleAlgorithm]:
     """Devuelve al menos diez algoritmos representativos."""
     return [
         SampleAlgorithm(
-            name="Busqueda Lineal",
+            name="Algoritmo de ordenamiento por inserción",
             category="Iterativo",
-            description="Recorre el arreglo completo para encontrar un elemento.",
-            pseudocode="""begin
-    i 🡨 1
-    while (i <= n) do
+            description="Busca la ubicación correcta del segundo elemento con respecto a los elementos que los preceden",
+            pseudocode="""Insertar(temporal[n], valor, tam)
+begin
+    if (tam = 0) then
     begin
-        if (A[i] = objetivo) then
+        temporal[0] ← valor
+    end
+    else
+    begin
+        x ← 0
+        while (temporal[x] < valor and x < tam) do
         begin
-            return i
+            x ← x + 1
         end
-        i 🡨 i + 1
-    end
-    return -1
-end""",
-            expected_complexity="O(n)",
-        ),
-        SampleAlgorithm(
-            name="Suma de Prefijos",
-            category="Iterativo",
-            description="Calcula sumas parciales con un for simple.",
-            pseudocode="""begin
-    suma 🡨 0
-    for i 🡨 1 to n do
-    begin
-        suma 🡨 suma + A[i]
-    end
-end""",
-            expected_complexity="O(n)",
-        ),
-        SampleAlgorithm(
-            name="Producto de Matrices",
-            category="Iterativo",
-            description="Triple bucle clasico para multiplicar matrices cuadradas.",
-            pseudocode="""begin
-    for i 🡨 1 to n do
-    begin
-        for j 🡨 1 to n do
+
+        ► IMPORTANTE: El algoritmo original hace un for decremental (y--).
+        ► usamos WHILE para simular el retroceso.
+        y ← tam
+        while (y > x) do
         begin
-            C[i, j] 🡨 0
-            for k 🡨 1 to n do
-            begin
-                C[i, j] 🡨 C[i, j] + A[i, k] * B[k, j]
-            end
+            temporal[y] ← temporal[y - 1]
+            y ← y - 1
         end
+
+        temporal[x] ← valor
+    end
+end
+
+ordenar3(arreglo[n], n)
+begin
+
+    temporal[n] 🡨 0
+
+    for x 🡨 0 to n - 1 do
+    begin
+        CALL Insertar(temporal, arreglo[x], x)
+    end
+
+    for x 🡨 0 to n - 1 do
+    begin
+        arreglo[x] ← temporal[x]
     end
 end""",
-            expected_complexity="O(n^3)",
+            expected_complexity="O(n^2)",
         ),
         SampleAlgorithm(
-            name="QuickSort Basico",
+            name="Torres de Hanoi",
             category="Recursivo",
-            description="Divide y venceras con particionamiento en dos subproblemas.",
-            pseudocode="""begin
-    if (low < high) then
+            description="Mueve discos entre tres postes siguiendo reglas específicas.",
+            pseudocode="""TorresHanoi(n, origen, auxiliar, destino)
+begin
+    if (n = 1) then
     begin
-        pivot 🡨 A[high]
-        i 🡨 low - 1
-        for j 🡨 low to high - 1 do
+        CALL Imprimir("Mover disco de " + origen + " a " + destino)
+    end
+    else
+    begin
+        CALL TorresHanoi(n - 1, origen, destino, auxiliar)
+        CALL Imprimir("Mover disco " + n + " de " + origen + " a " + destino)
+        CALL TorresHanoi(n - 1, auxiliar, origen, destino)
+    end
+end""",
+            expected_complexity="O(2^n)",
+        ),
+        SampleAlgorithm(
+            name="QuickSort",
+            category="Recursivo",
+            description="Divide y conquistarás con particionamiento en dos subproblemas.",
+            pseudocode="""
+    QuickSort(A[n], p, r)
+    begin
+        if (p < r) then
         begin
-            if (A[j] <= pivot) then
+            q 🡨 CALL Particion(A, p, r)
+            
+            izq 🡨 q - 1
+            CALL QuickSort(A, p, izq)
+            
+            der 🡨 q + 1
+            CALL QuickSort(A, der, r)
+        end
+    end
+    
+    Particion(A[n], p, r)
+    begin
+        pivote 🡨 A[p]
+        i 🡨 p
+        j 🡨 r
+        
+        while (i < j) do
+        begin
+            while (A[i] <= pivote and i <= r) do
             begin
                 i 🡨 i + 1
+            end
+            
+            while (A[j] > pivote and j >= p) do
+            begin
+                j 🡨 j - 1
+            end
+            
+            if (i < j) then
+            begin
                 temp 🡨 A[i]
                 A[i] 🡨 A[j]
                 A[j] 🡨 temp
             end
         end
-        temp 🡨 A[i + 1]
-        A[i + 1] 🡨 A[high]
-        A[high] 🡨 temp
-        CALL self(A, low, i)
-        CALL self(A, i + 2, high)
-    end
-end""",
-            expected_complexity="O(n log n)",
-        ),
-        SampleAlgorithm(
-            name="MergeSort",
-            category="Recursivo",
-            description="Divide el arreglo en mitades y las mezcla ordenadamente.",
-            pseudocode="""begin
-    if (length(A) <= 1) then
-    begin
-        return
-    end
-    mid 🡨 length(A) div 2
-    CALL self(A[1..mid])
-    CALL self(A[mid+1..length(A)])
-    CALL merge(A, mid)
-end""",
-            expected_complexity="O(n log n)",
-        ),
-        SampleAlgorithm(
-            name="Conteo de Inversiones",
-            category="Divide y venceras",
-            description="Cuenta inversiones con recursion y mezcla.",
-            pseudocode="""begin
-    if (length(A) <= 1) then
-    begin
-        return 0
-    end
-    mid 🡨 length(A) div 2
-    izquierda 🡨 CALL self(A[1..mid])
-    derecha 🡨 CALL self(A[mid+1..length(A)])
-    cruces 🡨 CALL mergeCount(A, mid)
-    return izquierda + derecha + cruces
-end""",
-            expected_complexity="O(n log n)",
+        
+        temp 🡨 A[p]
+        A[p] 🡨 A[j]
+        A[j] 🡨 temp
+        
+        return j
+    end""",
+            expected_complexity="O(n^2)",
         ),
         SampleAlgorithm(
             name="Busqueda Binaria",
             category="Recursivo/Iterativo",
             description="Divide el espacio de busqueda a la mitad cada vez.",
-            pseudocode="""begin
-    low 🡨 1
-    high 🡨 n
-    while (low <= high) do
+            pseudocode="""busquedaBinaria(A[n], valor)      
+begin
+    inicio ← 0
+    fin ← n - 1
+    encontrado ← 0
+    while (inicio ≤ fin and encontro = 0) do
     begin
-        mid 🡨 (low + high) div 2
-        if (A[mid] = objetivo) then
+        medio ← (inicio + fin) div 2
+        if (A[medio] = valor) then
         begin
-            return mid
-        end
-        else if (A[mid] < objetivo) then
-        begin
-            low 🡨 mid + 1
+            encontrado ← 1
         end
         else
         begin
-            high 🡨 mid - 1
+            if (A[medio] > valor) then
+            begin
+                fin ← medio - 1
+            end
+            else
+            begin
+                inicio ← medio + 1
+            end
         end
     end
-    return -1
-end""",
+    return encontro
+end
+""",
             expected_complexity="O(log n)",
         ),
         SampleAlgorithm(
-            name="Fibonacci Recursivo",
+            name="Fibonacci",
             category="Recursivo",
             description="Definicion recursiva directa del n-esimo Fibonacci.",
-            pseudocode="""begin
+            pseudocode="""Fibonacci(n)
+begin
     if (n <= 1) then
     begin
         return n
     end
     else
     begin
-        return CALL self(n - 1) + CALL self(n - 2)
+        temp1 🡨 n - 1
+        val1 🡨 0
+        CALL Fibonacci(temp1)
+        
+        temp2 🡨 n - 2
+        val2 🡨 0
+        CALL Fibonacci(temp2)
+        
+        resultado 🡨 val1 + val2
+        return resultado
     end
 end""",
             expected_complexity="O(2^n)",
@@ -176,52 +201,110 @@ end""",
             name="Factorial",
             category="Recursivo",
             description="Calcula n! con recursion simple.",
-            pseudocode="""begin
+            pseudocode="""Factorial(n)
+begin
     if (n <= 1) then
     begin
         return 1
     end
-    return n * CALL self(n - 1)
+    else
+    begin
+        temp 🡨 n - 1
+        sub 🡨 Factorial(temp)
+        resultado 🡨 n * sub
+        return resultado
+    end
 end""",
             expected_complexity="O(n)",
         ),
         SampleAlgorithm(
-            name="Dijkstra Simplificado",
-            category="Grafos",
-            description="Explora un grafo usando cola de prioridad.",
-            pseudocode="""begin
-    inicializarDistancias()
-    while (cola no esta vacia) do
+            name="Burbuja",
+            category="Iterativo",
+            description="Ordenamiento burbuja intercambiando vecinos.",
+            pseudocode="""Burbuja(A[n], n)
+begin
+    ► Ciclo externo
+    for i 🡨 1 to n - 1 do
     begin
-        u 🡨 extraerMin(cola)
-        for cada v en Adyacentes(u) do
+        ► Ciclo interno
+        ► El límite (n-i) depende del ciclo externo
+        for j 🡨 1 to n - i do
         begin
-            if (dist[u] + peso(u, v) < dist[v]) then
+            ► Bloque de costo O(1)
+            if (A[j] > A[j+1]) then
             begin
-                dist[v] 🡨 dist[u] + peso(u, v)
-                actualizar(cola, v)
+                temp ← A[j]
+                A[j] ← A[j+1]
+                A[j+1] ← temp
             end
         end
     end
 end""",
-            expected_complexity="O((n + m) log n)",
+            expected_complexity="O(n^2)",
         ),
         SampleAlgorithm(
-            name="Multiplicacion de Strassen",
-            category="Divide y venceras",
-            description="Ejemplo de algoritmo avanzado para matrices.",
-            pseudocode="""begin
-    if (n = 1) then
+            name="Busqueda Secuencial",
+            category="Iterativo",
+            description="Recorre el arreglo hasta encontrar el elemento buscado.",
+            pseudocode="""Busqueda(A[n], n, x)
+begin
+    i ← 1
+    encontrado ← 0
+    
+    ► Busca hasta encontrarlo o terminar el arreglo
+    while (i <= n) do
     begin
-        return A[1,1] * B[1,1]
+        if (A[i] = x) then
+        begin
+            encontrado ← 1
+            i ← n + 1
+        end
+        else
+        begin
+            i ← i + 1
+        end
     end
-    dividirMatrices()
-    CALL self(A11, B11)
-    CALL self(A22, B22)
-    CALL self(A11, B22)
-    CALL self(A22, B11)
-    combinarResultados()
+    return encontrado
 end""",
-            expected_complexity="O(n^log7)",
+            expected_complexity="O(n)",
+        ),
+        SampleAlgorithm(
+            name="MergeSort",
+            category="Divide y venceras",
+            description="Ordena por mezcla dividendo el arreglo y combinando.",
+            pseudocode="""MergeSort(A[n], n)
+begin
+    if (n > 1) then
+    begin
+        mitad ← n / 2
+        
+        ► 1. Dividir: Dos llamadas recursivas
+        CALL MergeSort(A, mitad)
+        CALL MergeSort(A, mitad)
+        
+        ► 2. Conquistar/Combinar (Coste Lineal O(n))
+        for i 🡨 1 to n do
+        begin
+            temp ← A[i]
+        end
+    end
+end""",
+            expected_complexity="O(n log n)",
+        ),
+        SampleAlgorithm(
+            name="Suma Gauss",
+            category="Iterativo",
+            description="Sumatoria básica de 1 a n.",
+            pseudocode="""SumaGauss(n)
+begin
+    suma ← 0
+    ► Ciclo simple de 1 a n
+    for i 🡨 1 to n do
+    begin
+        suma ← suma + i
+    end
+    return suma
+end""",
+            expected_complexity="O(n)",
         ),
     ]

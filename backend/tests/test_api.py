@@ -21,13 +21,14 @@ def test_analyze_endpoint() -> None:
     begin
         suma 🡨 suma + i
     end
-end""",
+    end""",
     }
     response = client.post("/api/analyze", json=payload)
     assert response.status_code == 200
     body = response.json()
-    assert "worst_case" in body["summary"]
-    assert "pattern_summary" in body["annotations"]
+    assert body.get("success") is True
+    assert "steps" in body
+    assert "solution" in body["steps"]
 
 
 def test_analyze_file_endpoint() -> None:

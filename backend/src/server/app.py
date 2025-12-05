@@ -10,6 +10,7 @@ from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile, 
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from src.server.simulation_routes import router as simulation_router
 
 # Cargar variables de entorno desde .env si existe
 try:
@@ -312,6 +313,8 @@ def create_app() -> FastAPI:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=detail,
             ) from exc
+        
+    app.include_router(simulation_router)
 
     return app
 

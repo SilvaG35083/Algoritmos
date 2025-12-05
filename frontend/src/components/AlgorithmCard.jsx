@@ -3,18 +3,16 @@ import PropTypes from "prop-types";
 export function AlgorithmCard({ sample, onSelect }) {
   return (
     <article className="sample-card" onClick={() => onSelect(sample)}>
-      <header style={{ marginBottom: ".35rem" }}>
+      <header className="sample-card-header">
         <small className="text-muted">{sample.category}</small>
-        <h3 style={{ margin: ".15rem 0 0", fontSize: "1.1rem" }}>
-          {sample.name}
-        </h3>
+        <h3 className="sample-card-title">{sample.name}</h3>
       </header>
-      <p className="text-muted" style={{ fontSize: ".9rem" }}>
+      <p className="text-muted sample-card-description">
         {sample.description}
       </p>
-      <footer style={{ marginTop: ".75rem", fontSize: ".85rem" }}>
+      <footer className="sample-card-footer">
         Complejidad esperada:{" "}
-        <span style={{ color: "#ff6bcb", fontWeight: 600 }}>
+        <span className="sample-card-complexity">
           {sample.expected_complexity}
         </span>
       </footer>

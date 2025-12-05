@@ -77,6 +77,12 @@ class RecursionRecognizer(Recognizer):
             if isinstance(statement, ast_nodes.CallStatement):
                 if statement.name.lower() in known_names:
                     return True
+            elif isinstance(statement, ast_nodes.Assignment):
+                if self._expression_has_recursive_call(statement.value, known_names):
+                    return True
+            elif isinstance(statement, ast_nodes.ReturnStatement):
+                if self._expression_has_recursive_call(statement.value, known_names):
+                    return True
             elif isinstance(statement, ast_nodes.IfStatement):
                 if self._has_recursive_call(statement.then_branch, known_names):
                     return True
@@ -91,4 +97,24 @@ class RecursionRecognizer(Recognizer):
             elif isinstance(statement, ast_nodes.RepeatUntilLoop):
                 if self._has_recursive_call(statement.body, known_names):
                     return True
+        return False
+
+    def _expression_has_recursive_call(self, expr: ast_nodes.Expression | None, known_names: set[str]) -> bool:
+        if expr is None:
+            return False
+        if isinstance(expr, ast_nodes.CallExpression):
+            callee = expr.callee.name if isinstance(expr.callee, ast_nodes.Identifier) else None
+            if callee and callee.lower() in known_names:
+                return True
+            return any(self._expression_has_recursive_call(arg, known_names) for arg in expr.arguments)
+        if isinstance(expr, ast_nodes.BinaryOperation):
+            return self._expression_has_recursive_call(expr.left, known_names) or self._expression_has_recursive_call(expr.right, known_names)
+        if isinstance(expr, ast_nodes.UnaryOperation):
+            return self._expression_has_recursive_call(expr.operand, known_names)
+        if isinstance(expr, ast_nodes.ArrayAccess):
+            return self._expression_has_recursive_call(expr.base, known_names) or self._expression_has_recursive_call(expr.index, known_names)
+        if isinstance(expr, ast_nodes.FieldAccess):
+            return self._expression_has_recursive_call(expr.base, known_names)
+        if isinstance(expr, ast_nodes.RangeExpression):
+            return self._expression_has_recursive_call(expr.start, known_names) or self._expression_has_recursive_call(expr.end, known_names)
         return False

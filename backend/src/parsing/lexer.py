@@ -41,10 +41,23 @@ RESERVED_WORDS: Sequence[str] = (
     "class",
     "mod",
     "div",
+    "returns",
+    "declare",
+    "algorithm",
+    "let",
+    "be",
+    "new",
+    "array",
+    "arrays",
+    "with",
+    "procedure",
+    "function",
     "return",
     "print",
     "t",
     "f",
+    "true",
+    "false",
 )
 
 
@@ -88,6 +101,13 @@ class Lexer:
         idx = 0
         while idx < self._length:
             current = self._source[idx]
+            # Comentarios estilo '//' o viñeta '►'
+            if current == "/" and self._peek(idx + 1) == "/":
+                idx, line, column = self._consume_line_comment(idx, line, column, prefix_len=2)
+                continue
+            if current == "►":
+                idx, line, column = self._consume_line_comment(idx, line, column, prefix_len=1)
+                continue
             if current in " \t\r":
                 idx, column = self._consume_whitespace(idx, column)
                 continue
@@ -95,9 +115,6 @@ class Lexer:
                 line += 1
                 column = 1
                 idx += 1
-                continue
-            if current == "►":
-                idx, line, column = self._consume_comment(idx, line, column)
                 continue
             if current == ".":
                 next_char = self._peek(idx + 1)
@@ -184,6 +201,14 @@ class Lexer:
             column += 1
         return idx, line, column
 
+    def _consume_line_comment(self, idx: int, line: int, column: int, prefix_len: int) -> tuple[int, int, int]:
+        idx += prefix_len
+        column += prefix_len
+        while idx < self._length and self._source[idx] != "\n":
+            idx += 1
+            column += 1
+        return idx, line, column
+
     def _consume_multi_symbol(self, idx: int) -> tuple[str, int] | None:
         current = self._source[idx]
         next_char = self._peek(idx + 1)
@@ -194,6 +219,8 @@ class Lexer:
             lexeme = ">="
         elif current == "<" and next_char == ">":
             lexeme = "<>"
+        elif current == "<" and next_char == "-":
+            lexeme = "<-"
         elif current == ":" and next_char == "=":
             lexeme = ":="
         elif current == "≤":
@@ -205,8 +232,18 @@ class Lexer:
         elif current == "≠":
             lexeme = "<>"
             next_char = ""
+        elif current == "=" and next_char == "=":
+            lexeme = "="
+        elif current == "¡" and next_char == "=":
+            lexeme = "<>"
         elif current == "🡨":
             lexeme = "🡨"
+            next_char = ""
+        # Some editors/input methods produce a different left-arrow glyph (U+2190 '←').
+        # Normalize that variant to the canonical assignment arrow used in the parser.
+        elif current == "←":
+            lexeme = "🡨"
+            next_char = ""
             next_char = ""
         elif current == "(":
             lexeme = "("
