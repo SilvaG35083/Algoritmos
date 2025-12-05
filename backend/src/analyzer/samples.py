@@ -14,6 +14,7 @@ class SampleAlgorithm:
     pseudocode: str
     expected_complexity: str
 
+
 def load_samples() -> List[SampleAlgorithm]:
     """Devuelve al menos diez algoritmos representativos."""
     return [
@@ -66,7 +67,7 @@ end""",
             expected_complexity="O(n^2)",
         ),
         SampleAlgorithm(
-            name="Torres de Hanoi", 
+            name="Torres de Hanoi",
             category="Recursivo",
             description="Mueve discos entre tres postes siguiendo reglas específicas.",
             pseudocode="""TorresHanoi(n, origen, auxiliar, destino)
@@ -137,7 +138,6 @@ end""",
     end""",
             expected_complexity="O(n^2)",
         ),
-
         SampleAlgorithm(
             name="Busqueda Binaria",
             category="Recursivo/Iterativo",
@@ -146,13 +146,13 @@ end""",
 begin
     inicio ← 0
     fin ← n - 1
-    encontro ← 0
+    encontrado ← 0
     while (inicio ≤ fin and encontro = 0) do
     begin
         medio ← (inicio + fin) div 2
         if (A[medio] = valor) then
         begin
-            encontro ← 1
+            encontrado ← 1
         end
         else
         begin
@@ -201,13 +201,110 @@ end""",
             name="Factorial",
             category="Recursivo",
             description="Calcula n! con recursion simple.",
-            pseudocode="""begin
+            pseudocode="""Factorial(n)
+begin
     if (n <= 1) then
     begin
         return 1
     end
-    return n * CALL self(n - 1)
+    else
+    begin
+        temp 🡨 n - 1
+        sub 🡨 Factorial(temp)
+        resultado 🡨 n * sub
+        return resultado
+    end
 end""",
             expected_complexity="O(n)",
-        )
+        ),
+        SampleAlgorithm(
+            name="Burbuja",
+            category="Iterativo",
+            description="Ordenamiento burbuja intercambiando vecinos.",
+            pseudocode="""Burbuja(A[n], n)
+begin
+    ► Ciclo externo
+    for i 🡨 1 to n - 1 do
+    begin
+        ► Ciclo interno
+        ► El límite (n-i) depende del ciclo externo
+        for j 🡨 1 to n - i do
+        begin
+            ► Bloque de costo O(1)
+            if (A[j] > A[j+1]) then
+            begin
+                temp ← A[j]
+                A[j] ← A[j+1]
+                A[j+1] ← temp
+            end
+        end
+    end
+end""",
+            expected_complexity="O(n^2)",
+        ),
+        SampleAlgorithm(
+            name="Busqueda Secuencial",
+            category="Iterativo",
+            description="Recorre el arreglo hasta encontrar el elemento buscado.",
+            pseudocode="""Busqueda(A[n], n, x)
+begin
+    i ← 1
+    encontrado ← 0
+    
+    ► Busca hasta encontrarlo o terminar el arreglo
+    while (i <= n) do
+    begin
+        if (A[i] = x) then
+        begin
+            encontrado ← 1
+            i ← n + 1
+        end
+        else
+        begin
+            i ← i + 1
+        end
+    end
+    return encontrado
+end""",
+            expected_complexity="O(n)",
+        ),
+        SampleAlgorithm(
+            name="MergeSort",
+            category="Divide y venceras",
+            description="Ordena por mezcla dividendo el arreglo y combinando.",
+            pseudocode="""MergeSort(A[n], n)
+begin
+    if (n > 1) then
+    begin
+        mitad ← n / 2
+        
+        ► 1. Dividir: Dos llamadas recursivas
+        CALL MergeSort(A, mitad)
+        CALL MergeSort(A, mitad)
+        
+        ► 2. Conquistar/Combinar (Coste Lineal O(n))
+        for i 🡨 1 to n do
+        begin
+            temp ← A[i]
+        end
+    end
+end""",
+            expected_complexity="O(n log n)",
+        ),
+        SampleAlgorithm(
+            name="Suma Gauss",
+            category="Iterativo",
+            description="Sumatoria básica de 1 a n.",
+            pseudocode="""SumaGauss(n)
+begin
+    suma ← 0
+    ► Ciclo simple de 1 a n
+    for i 🡨 1 to n do
+    begin
+        suma ← suma + i
+    end
+    return suma
+end""",
+            expected_complexity="O(n)",
+        ),
     ]
