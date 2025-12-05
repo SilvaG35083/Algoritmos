@@ -14,9 +14,11 @@ class ExtractionResult:
 
     - relation: the RecurrenceRelation (string form) built from the AST
     - structural: ComplexityResult produced by the ComplexityEngine (Ω/O/Θ)
+    - variables: List of variables identified in the code
     """
     relation: RecurrenceRelation
     structural: ComplexityResult
+    variables: list[dict] = None
 
 class GenericASTVisitor:
     """
@@ -42,6 +44,21 @@ class GenericASTVisitor:
         
         # Contexto de asignaciones: var_name -> BinaryOperation
         self._assignments: dict[str, ast_nodes.Expression] = {} 
+        
+        # Variables identificadas
+        self.variables: list[dict] = []
+        self._seen_vars = set()
+
+    def _add_variable(self, name: str, role: str, line: int = None):
+        """Registra una variable si no ha sido registrada con ese rol."""
+        key = (name, role)
+        if key not in self._seen_vars:
+            self._seen_vars.add(key)
+            self.variables.append({
+                "name": name,
+                "role": role,
+                "line": line
+            }) 
 
     def visit(self, node, current_func_name="main"):
         """Despachador dinámico: llama a visit_NombreClase"""
@@ -111,6 +128,10 @@ class GenericASTVisitor:
         if self.loop_depth > self.max_loop_depth:
             self.max_loop_depth = self.loop_depth
             
+        # Registrar variable iteradora
+        if hasattr(node, 'iterator'):
+            self._add_variable(node.iterator, "iterator", getattr(node, 'line', None))
+
         # Visitamos los hijos dentro del bucle
         self.generic_visit(node, current_func_name)
         
@@ -540,12 +561,17 @@ def extract_generic_recurrence(ast_root, func_name="self") -> ExtractionResult:
         # Analizar las subrutinas definidas en el programa
         procedures = getattr(ast_root, "procedures", []) or []
         func_structures: dict[str, ComplexityResult] = {}
+        print(f"DEBUG: Procedures encontrados: {[p.name for p in procedures]}")
         for proc in procedures:
             try:
+                print(f"DEBUG: Analizando procedimiento '{proc.name}'...")
                 proc_struct = engine.analyze(proc)
                 func_structures[proc.name.lower()] = proc_struct
-            except Exception:
-                pass
+                print(f"DEBUG:   → Complejidad: {proc_struct.average_case}")
+            except Exception as e:
+                print(f"DEBUG:   → ERROR: {e}")
+                import traceback
+                traceback.print_exc()
 
         # También considerar 'self' (la función actual)
         try:
@@ -577,15 +603,20 @@ def extract_generic_recurrence(ast_root, func_name="self") -> ExtractionResult:
         # Encontrar la complejidad máxima entre las funciones llamadas en bucle
         max_deg = 0
         max_log = 0
+        print(f"DEBUG: Analizando llamadas en bucles: {list(visitor.calls_in_loops.keys())}")
         for callee in visitor.calls_in_loops.keys():
             struct = func_structures.get(callee)
             if not struct:
                 struct = func_structures.get(callee.lower())
             if struct:
+                print(f"DEBUG: Función '{callee}' → {struct.average_case}")
                 d, lp = parse_theta(struct.average_case)
+                print(f"DEBUG:   Parseado como deg={d}, log={lp}")
                 if (d > max_deg) or (d == max_deg and lp > max_log):
                     max_deg = d
                     max_log = lp
+        
+        print(f"DEBUG: max_deg={max_deg}, max_log={max_log}, visitor.max_loop_depth={visitor.max_loop_depth}")
 
         if max_deg > 0 or max_log > 0:
             combined_deg = visitor.max_loop_depth + max_deg
@@ -644,4 +675,4 @@ def extract_generic_recurrence(ast_root, func_name="self") -> ExtractionResult:
                 notes=f"Algoritmo iterativo con llamadas anidadas. {structural.annotations['calls_in_loops_max_called']}",
             )
 
-    return ExtractionResult(relation=relation, structural=structural)
+    return ExtractionResult(relation=relation, structural=structural, variables=visitor.variables)

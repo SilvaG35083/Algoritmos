@@ -135,6 +135,49 @@ export function AnalysisModal({ isOpen, onClose, result }) {
           <div className="extraction-content">
             <h2 className="extraction-equation">{stepData.equation}</h2>
             <p className="extraction-explanation">{stepData.explanation}</p>
+
+            {/* --- NUEVO: Mostrar detalles del análisis matemático --- */}
+            {stepData.mathematical_analysis && (
+              <div className="math-analysis-details" style={{ marginTop: '1.5rem', marginBottom: '1.5rem', padding: '1rem', background: 'rgba(59, 130, 246, 0.1)', borderRadius: '8px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                 <h4 style={{ margin: '0 0 0.5rem 0', color: '#60a5fa', fontSize: '0.95rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                   {stepData.mathematical_analysis.technique_used || "Técnica de Análisis"}
+                 </h4>
+                 <p style={{ margin: 0, fontSize: '0.9rem', color: '#e2e8f0', lineHeight: '1.5' }}>
+                   {stepData.mathematical_analysis.technique_explanation}
+                 </p>
+                 {/* Opcional: Mostrar la complejidad calculada en este paso */}
+                 {stepData.mathematical_analysis.complexity && (
+                    <div style={{ marginTop: '0.8rem', display: 'flex', gap: '1rem', fontSize: '0.85rem', color: '#94a3b8' }}>
+                        <span>Promedio: <strong style={{ color: '#e2e8f0' }}>{stepData.mathematical_analysis.complexity.average_case}</strong></span>
+                    </div>
+                 )}
+              </div>
+            )}
+
+            {stepData.variables && stepData.variables.length > 0 && (
+              <div className="variables-container" style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <h4 style={{ margin: '0 0 0.8rem 0', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px', color: '#94a3b8' }}>Variables Identificadas</h4>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem' }}>
+                  {stepData.variables.map((v, i) => (
+                    <span key={i} style={{ 
+                      background: '#1e293b', 
+                      padding: '6px 10px', 
+                      borderRadius: '6px', 
+                      fontSize: '0.85rem',
+                      border: '1px solid #334155',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}>
+                      <strong style={{ color: '#38bdf8' }}>{v.name}</strong>
+                      <span style={{ width: '1px', height: '12px', background: '#475569' }}></span>
+                      <span style={{ color: '#cbd5e1' }}>{v.role}</span>
+                      {v.line && <span style={{ color: '#64748b', fontSize: '0.75rem' }}>L{v.line}</span>}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         );
       case "solution":

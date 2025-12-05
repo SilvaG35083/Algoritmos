@@ -179,8 +179,10 @@ class ComplexityEngine:
         has_recursion = any(match.name == "recursion" for match in matches)
         
         # Detectar recursión manualmente si el PatternLibrary no la detectó
-        if not has_recursion and program.procedures:
-            for proc in program.procedures:
+        procedures_list = getattr(program, 'procedures', [])
+
+        if not has_recursion and procedures_list:
+            for proc in procedures_list:
                 if self._count_recursive_calls(proc) > 0:
                     has_recursion = True
                     annotations["pattern_summary"] = f"Se detecto recursividad en la subrutina {proc.name}."
