@@ -1,58 +1,48 @@
-# Documentación del Análisis (Extractor como fachada)
+# Documentación del análisis
 
-Este documento describe la organización actual del subsistema de análisis y explica cómo usar y extender el extractor (`src/analysis/extractor.py`), que ahora actúa como la única entrada para el análisis.
+El backend centraliza el análisis en el extractor (`src/analysis/extractor.py`) y en el servicio `analyze_algorithm_flow`, que arma el payload consumido por el modal del frontend.
 
-## Objetivo
-Centralizar en `extractor` todas las funcionalidades de análisis para que el resto del sistema (pipeline, endpoints) use una sola API y no existan rutas divergentes.
+## Flujo de análisis
+1. **Lexer** (`parsing.lexer.Lexer`): tokeniza pseudocódigo con soporte Unicode y comentarios.
+2. **Parser** (`parsing.parser.Parser`): construye AST con bucles, condicionales, llamadas y procedimientos.
+3. **Costo por línea** (`analysis.line_costs.LineCostAnalyzer`):
+   - O(n^k) según profundidad de bucles; trata bucles secuenciales sin sumar profundidad extra.
+   - Reconoce whiles logarítmicos (búsqueda binaria, divisiones por 2) y añade factores `log n`.
+4. **Extractor** (`analysis.extractor.extract_generic_recurrence`):
+   - Devuelve `ExtractionResult` con:
+     - `relation`: `RecurrenceRelation` (`identifier`, `recurrence`, `base_case`, `notes`).
+     - `structural`: `ComplexityResult` (`best_case`, `worst_case`, `average_case`, `annotations`).
+   - Heurísticas rastreadas: bucles anidados/seriales, llamadas recursivas, recursión en bucles, patrones divide y vencerás, recursión lineal vs. por división, profundidad logarítmica.
+5. **Solución** (`services.analysis_service.analyze_algorithm_flow`):
+   - Usa `ComplexityEngine` cuando hay llamadas en bucles, patrones iterativos o logarítmicos.
+   - Usa `RecurrenceSolver` cuando la recurrencia es resoluble y fiable; si falla, vuelve a `structural`.
+   - Traduce la notación a nombres legibles (lineal, cuadrática, exponencial, etc.) y construye `steps["solution"]`.
+6. **Dynamic Programming (opcional)**:
+   - Si la recurrencia es candidata (ej. `T(n) = T(n-1) + T(n-2)`), se añade `steps["dynamic_programming"]` con modelo recursivo, tablas y vector SOA; incluye caso especial de Fibonacci.
 
-## ¿Qué hace el extractor?
-- Recorre el AST generado por el parser y calcula:
-  - Una forma canónica de la recurrencia: `RecurrenceRelation` con `recurrence` y `notes`.
-  - Una estimación estructural usando `ComplexityEngine` (Ω/O/Θ y anotaciones).
-- Devuelve un `ExtractionResult` con las dos piezas: `relation` y `structural`.
-
-## API pública
-- `extract_generic_recurrence(ast_root, func_name="self") -> ExtractionResult`
-  - `ExtractionResult.relation`: `RecurrenceRelation` (campos: `identifier`, `recurrence`, `base_case`, `notes`)
-  - `ExtractionResult.structural`: `ComplexityResult` (campos: `best_case`, `worst_case`, `average_case`, `annotations`)
-
-## Integración con pipeline y endpoints
-- `analyzer.pipeline.AnalysisPipeline.run` usa ahora `extract_generic_recurrence(program)` y genera el `AnalysisReport` con `extraction.structural`.
-- `services.analysis_service.analyze_algorithm_flow` llama a `extract_generic_recurrence(ast)` y:
-  - expone `response_steps["extraction"]` con la ecuación y notas
-  - expone `response_steps["structural_engine"]` con las cotas del `ComplexityEngine`
-  - utiliza `relation` (recurrence) para el `RecurrenceSolver`.
-
-## Beneficios del diseño
-- Mantiene `ComplexityEngine` como una unidad reutilizable y testeable.
-- Evita duplicación: mejoras en heurísticas quedan en `ComplexityEngine` y se usan automáticamente cuando el extractor invoca al engine.
-- Permite que el frontend reciba tanto la ecuación matemática como la estimación estructural en una sola respuesta JSON.
-
-## Ejemplo de uso (script rápido)
+## API pública del extractor
 ```python
-from parsing.parser import Parser
-from analysis.extractor import extract_generic_recurrence
-
-src = "for i from 1 to n: sum += i"
-parser = Parser(src)
-ast = parser.parse()
-extraction = extract_generic_recurrence(ast)
-print('Recurrence:', extraction.relation.recurrence)
-print('Structural:', extraction.structural.best_case, extraction.structural.worst_case, extraction.structural.average_case)
+extract_generic_recurrence(ast_root, func_name="self") -> ExtractionResult
+# relation: RecurrenceRelation
+# structural: ComplexityResult
 ```
 
-## Extender el extractor
-- Si quieres añadir nuevas heurísticas (detectores de patrones, análisis de espacio, métricas por línea), hazlo dentro de `extractor` y añade datos al `ExtractionResult`.
-- Mantén las funciones de bajo nivel (recorrer AST, detectar llamadas recursivas) como funciones puras y testables.
+## Datos expuestos al frontend (`steps`)
+- `lexer`: tokens en string.
+- `parser`: AST serializado.
+- `line_costs`: filas `{line, code, cost}`.
+- `extraction`: `equation`, `explanation`.
+- `solution`: `main_result`, `cases` (best/worst/average), `method_used`, `justification`, `math_steps`, `complexity_class/desc`, `expected` (si hay referencia).
+- `dynamic_programming` (si aplica): modelo recursivo + tablas de óptimos/caminos + Vector SOA demo.
 
-## Pruebas sugeridas
-- Unit tests para `ComplexityEngine` (pequeños snippets y resultados esperados).
-- Integration tests para `extract_generic_recurrence` que validen la relación y la estructura devuelta.
+## Extender
+- Nuevas heurísticas: agrégalas en `extractor` o `pattern_library` y añade anotaciones claras.
+- Nuevas métricas: extiende `ComplexityResult` y propaga al `AnalysisModal`.
+- Mantén las funciones puras y testeables (no acoples a FastAPI).
 
-## Notas de mantenimiento
-- Documenta cualquier heurística nueva dentro del extractor.
-- Evita mover lógica pesada a `services/` o `server/` — deben limitarse a orquestación y exposición HTTP.
+## Pruebas recomendadas
+- Unit tests para `ComplexityEngine`, `LineCostAnalyzer` y extractores de patrones.
+- Integración: `extract_generic_recurrence` sobre snippets representativos.
+- Contract tests: validar la forma de `steps` en `/api/analyze` cuando se añadan claves nuevas.
 
----
-
-Actualizado: 2025-11-26
+Actualizado: 2025-12-05

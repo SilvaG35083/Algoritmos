@@ -1,9 +1,6 @@
 # Analizador de Complejidades
 
-Sistema integral para estimar la complejidad computacional (O, Ω, Θ) de algoritmos descritos en el pseudocódigo oficial del curso de **Análisis y Diseño de Algoritmos**. El proyecto está dividido en dos capas:
-
-- `backend/`: motor de análisis en Python/FastAPI, dataset de algoritmos y API REST (incluye asistente LLM).
-- `frontend/`: interfaz web moderna en React/Vite, tema oscuro, con editor, carga de archivos y consumo del API.
+Sistema integral para estimar complejidad (O, Θ, Ω) de algoritmos escritos en el pseudocódigo oficial del curso de **Análisis y Diseño de Algoritmos**. Incluye motor de análisis estático, heurísticas por estructura, rutas REST, chat LLM y un simulador apoyado por modelo generativo.
 
 ---
 
@@ -12,58 +9,54 @@ Sistema integral para estimar la complejidad computacional (O, Ω, Θ) de algori
 2. [Estructura del repositorio](#estructura-del-repositorio)
 3. [Requisitos](#requisitos)
 4. [Primeros pasos](#primeros-pasos)
-5. [Uso del SDK Python](#uso-del-sdk-python)
-6. [API REST (FastAPI)](#api-rest-fastapi)
-7. [Frontend React](#frontend-react)
-8. [Pruebas](#pruebas)
-9. [Notas adicionales](#notas-adicionales)
+5. [API REST](#api-rest)
+6. [Frontend](#frontend)
+7. [Pruebas](#pruebas)
+8. [LLM y claves](#llm-y-claves)
+9. [Documentación extra](#documentación-extra)
 
 ---
 
 ## Objetivos clave
-- Interpretar pseudocódigo estructurado y generar representaciones internas (AST, tablas de símbolos, patrones).
-- Calcular costos elementales y obtener cotas fuertes para los casos mejor, peor y promedio.
-- Reconocer patrones complejos (divide y vencerás, recursión, grafos) con apoyo de heurísticas y LLMs.
-- Generar reportes explicativos y un dataset de prueba (≥10 algoritmos).
-- **Corrección gramatical automática** usando LLMs cuando hay errores de parsing.
-- **Chat interactivo** para generar algoritmos en lenguaje natural con análisis detallado línea por línea.
-- **Análisis avanzado** con ecuaciones de recurrencia, árboles de recursión y métodos algorítmicos.
+- Interpretar pseudocódigo estructurado y generar AST, tablas de símbolos y patrones.
+- Calcular cotas fuertes (mejor/peor/promedio) combinando `ComplexityEngine` + solver de recurrencias.
+- Detectar patrones avanzados (divide y vencerás, recursión, grafos) y anotar heurísticas.
+- Entregar dataset de referencia (≥10 algoritmos) y flujo de análisis paso a paso para el modal del frontend.
+- **Chat LLM** (OpenAI/Gemini) para generar algoritmos y análisis línea por línea.
+- **Simulación LLM**: ruta `/api/simulate` que devuelve árbol de ejecución JSON para inputs dados.
 
 ---
 
 ## Estructura del repositorio
-
 ```
 .
-├── backend/                  # Proyecto Python / FastAPI
-│   ├── docs/                 # Documentación y arquitectura
-│   ├── src/                  # Código fuente del analizador + API REST
-│   ├── tests/                # Pruebas unitarias e integración
-│   ├── pyproject.toml        # Dependencias y build
-│   └── pytest.ini
-├── frontend/                 # Interfaz React + Vite (tema oscuro)
-│   ├── src/                  # Componentes, estilos, hooks
-│   ├── package.json
-│   └── vite.config.js
-├── README.md
-└── .gitignore
+├─ backend/                  # FastAPI + motor de análisis
+│  ├─ docs/                  # Documentación técnica
+│  ├─ src/                   # Analyzer, server, LLM, servicios
+│  ├─ tests/                 # Pruebas unitarias/integración
+│  ├─ GEMINI_SETUP.md        # Guía rápida Gemini
+│  ├─ LLM_SETUP.md           # Configuración general de LLMs
+│  └─ README_ENV.md          # Ejemplos de .env/variables
+├─ frontend/                 # React + Vite
+│  ├─ src/                   # App, componentes, estilos
+│  └─ package.json
+├─ README.md                 # Este documento
+└─ informe_final.md          # Informe final (no tocar)
 ```
-
-> Documentación técnica adicional en `backend/docs/architecture.md`.
 
 ---
 
 ## Requisitos
-- **Python 3.11+** (backend).
-- **Node.js 18+** (frontend).
-- Opcional: `OPENAI_API_KEY` o `GEMINI_API_KEY` para habilitar el asistente LLM (por defecto usa respuesta simulada). 
-  - Instala extras con `pip install -e .[llm]` si usarás modelos externos.
-  - Ver `backend/LLM_SETUP.md` para configuración detallada.
+- **Python 3.11+** para backend.
+- **Node.js 18+** para frontend.
+- Claves opcionales:
+  - `OPENAI_API_KEY`/`OPENAI_MODEL` para chat/LLM (proveedor `openai`).
+  - `GEMINI_API_KEY`/`GEMINI_MODEL` para chat y simulación (`provider: gemini` o `/api/simulate`).
+  - Instala extras con `pip install -e .[llm]` en `backend/`.
 
 ---
 
 ## Primeros pasos
-
 ### Backend
 ```bash
 cd backend
@@ -71,7 +64,7 @@ python -m venv .venv
 .venv\Scripts\activate        # Windows
 # source .venv/bin/activate   # macOS / Linux
 pip install -e .[dev]
-python -m pytest
+python -m pytest              # opcional: smoke test
 uvicorn server.app:app --reload --port 8000
 ```
 
@@ -79,135 +72,83 @@ uvicorn server.app:app --reload --port 8000
 ```bash
 cd frontend
 npm install
-npm run dev     # http://localhost:5173
+npm run dev                   # http://localhost:5173
 ```
-
-Configura `VITE_API_BASE_URL` si el backend corre en otra URL.
+Define `VITE_API_BASE_URL` si el backend corre en otro host/puerto.
 
 ---
 
-## Uso del SDK Python
+## API REST
+Base por defecto: `http://localhost:8000`
 
-```python
-from analyzer import AnalysisPipeline
+| Método | Ruta                | Descripción                                                                                 |
+| ------ | ------------------- | ------------------------------------------------------------------------------------------- |
+| GET    | `/api/health`       | Estado y versión (`0.3.0`).                                                                 |
+| GET    | `/api/samples`      | Dataset de algoritmos (≥10) con pseudocódigo y complejidad esperada.                       |
+| POST   | `/api/analyze`      | Análisis detallado (lexer → parser → costo por línea → extracción → solución).             |
+| POST   | `/api/analyze-file` | Igual que `/api/analyze`, leyendo un archivo UTF-8 (multipart).                             |
+| POST   | `/api/llm/analyze`  | Genera pseudocódigo + análisis vía LLM (stub si no hay API key).                            |
+| POST   | `/api/llm/chat`     | Chat interactivo con historial; proveedor seleccionable (`openai`/`gemini`).               |
+| POST   | `/api/simulate`     | Simulación con LLM: entrega árbol de ejecución JSON según inputs. Requiere `GEMINI_API_KEY`. |
 
-pipeline = AnalysisPipeline()
-reporte = pipeline.run("""begin
-    for i 🡨 1 to n do
-    begin
-        x 🡨 x + 1
-    end
-end""")
+### Forma de respuesta de `/api/analyze`
+```json
+{
+  "success": true,
+  "steps": {
+    "lexer": {...},
+    "parser": {...},
+    "line_costs": {"rows": [{"line": 5, "cost": "n^2", "code": "..."}]},
+    "extraction": {"equation": "T(n) = 2T(n/2) + n", "explanation": "..."},
+    "solution": {"main_result": "Θ(n log n)", "cases": {...}},
+    "dynamic_programming": {...}
+  },
+  "annotations": {}
+}
+```
 
-print(reporte.summary)       # {'best_case': 'Ω(n)', 'worst_case': 'O(n)', 'average_case': 'Θ(n)'}
-print(reporte.annotations)   # notas/heurísticas detectadas
+Ejemplo rápido:
+```bash
+curl -X POST http://localhost:8000/api/analyze \
+  -H "Content-Type: application/json" \
+  -d "{\"source\": \"begin\\n for i <- 1 to n do\\n begin\\n  x <- x + 1\\n end\\nend\"}"
 ```
 
 ---
 
-## API REST (FastAPI)
-
-```bash
-uvicorn server.app:app --reload --port 8000
-```
-
-| Método | Ruta                 | Descripción                                       |
-| ------ | -------------------- | ------------------------------------------------- |
-| GET    | `/api/health`        | Verificación del servicio                         |
-| GET    | `/api/samples`       | Dataset con algoritmos de referencia              |
-| POST   | `/api/analyze`       | Analiza pseudocódigo enviado en JSON (con corrección gramatical automática) |
-| POST   | `/api/analyze-file`  | Analiza pseudocódigo subido como archivo (multipart) |
-| POST   | `/api/llm/analyze`   | Asistente LLM: genera pseudocódigo y análisis     |
-| POST   | `/api/llm/chat`      | Chat interactivo con historial de conversación   |
-
-Ejemplo de chat:
-```bash
-curl -X POST http://localhost:8000/api/llm/chat \
-     -H "Content-Type: application/json" \
-     -d '{
-       "message": "Genera quicksort y analiza su complejidad",
-       "provider": "openai"
-     }'
-```
-
-Sin `OPENAI_API_KEY` o `GEMINI_API_KEY`, la API devuelve respuestas simuladas.
-
----
-
-## Frontend React
-
-- Tema oscuro con efectos glassmorphism.
-- Editor con limpieza rápida, subida de archivos o entrada manual.
-- Grid de algoritmos de ejemplo (divide y vencerás, recursión, grafos, etc.).
-- Panel de resultados O/Ω/Θ y anotaciones.
-- **Chat interactivo LLM**: 
-  - Conversación en tiempo real con historial
-  - Generación de algoritmos en lenguaje natural
-  - Análisis detallado línea por línea con:
-    - Ecuaciones de recurrencia
-    - Árboles de recursión visuales
-    - Métodos algorítmicos identificados
-    - Costos por línea de código
-    - Complejidad espacial y temporal
-  - Soporte para múltiples proveedores (ChatGPT/Gemini)
-  - Métricas de uso (tokens, latencia)
-
-```bash
-cd frontend
-npm run dev
-```
+## Frontend
+- Editor con limpieza rápida y carga de archivos (`.txt`, `.psc`, `.algo`, `.md`, `.json`, `.py`).
+- Modal de análisis paso a paso consumiendo `steps` del backend (lexer, parser, costo por línea, extracción, solución, DP).
+- Selector de algoritmo de ejemplo desde `/api/samples`.
+- Chat LLM con historial y switch de proveedor (OpenAI/Gemini); rellena el editor si el asistente devuelve pseudocódigo.
+- Modal de simulación que consume `/api/simulate` y muestra el árbol de ejecución devuelto por el LLM.
+- Tema oscuro/glassmorphism listo para escritorio y móvil.
 
 ---
 
 ## Pruebas
-
-Desde `backend/`:
+En `backend/`:
 ```bash
 python -m pytest
 ```
-
-Cobertura actual:
+Cobertura principal:
+- `tests/test_api.py`: health, analyze, analyze-file, llm/analyze (stub).
 - `tests/test_pipeline.py`: flujo base del motor.
-- `tests/test_api.py`: rutas `/api/health`, `/api/analyze`, `/api/analyze-file`.
-
-Agregar pruebas para `/api/llm/analyze` con mocks cuando se use la clave LLM.
+- `tests/test_*`: lexer, parser con procedimientos, palabras clave, bloques relajados y swap.
 
 ---
 
-## Funcionalidades LLM
+## LLM y claves
+- Sin API key: `/api/llm/analyze` y `/api/llm/chat` devuelven respuestas simuladas; `/api/simulate` fallará.
+- Con `OPENAI_API_KEY`: chat/analyze usan `gpt-4o-mini` (configurable vía `OPENAI_MODEL`).
+- Con `GEMINI_API_KEY`: chat/analyze pueden usar `gemini-2.5-flash` (configurable) y la simulación se habilita.
+- Variables recomendadas en `backend/.env`: `LLM_PROVIDER`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `GEMINI_API_KEY`, `GEMINI_MODEL`.
+Consulta `backend/LLM_SETUP.md`, `backend/GEMINI_SETUP.md` y `backend/README_ENV.md` para ejemplos.
 
-### Corrección Gramatical Automática
-Cuando el parser detecta errores en el pseudocódigo, el sistema usa un LLM para:
-- Identificar errores gramaticales
-- Sugerir correcciones automáticas
-- Mantener la lógica del algoritmo intacta
-- Proporcionar explicaciones de las correcciones
+---
 
-### Chat Interactivo
-El componente de chat permite:
-- Pedir algoritmos en lenguaje natural
-- Mantener historial de conversación
-- Obtener análisis detallados con:
-  - Pseudocódigo estructurado
-  - Ecuaciones de recurrencia
-  - Árboles de recursión
-  - Análisis línea por línea
-  - Identificación de métodos algorítmicos
+## Documentación extra
+- `backend/docs/architecture.md`: capas, flujo backend y rutas expuestas.
+- `backend/docs/analysis.md`: extractor, heurísticas, line-costs y decisiones solver vs. estructural.
 
-### Análisis Detallado
-Cada análisis incluye:
-- **Ecuaciones**: Relaciones de recurrencia con explicaciones
-- **Árboles**: Representación visual de la recursión
-- **Métodos**: Identificación de técnicas (divide y vencerás, DP, voraz, etc.)
-- **Costos**: Análisis O/Ω/Θ por línea
-- **Métricas**: Tokens usados y latencia
-
-Ver `backend/LLM_SETUP.md` para configuración detallada.
-
-## Notas adicionales
-- Documentar en español solo cuando la lógica no sea evidente.
-- Variables sensibles en `.env` (no versionado) tanto para backend como frontend.
-- Los prompts y decisiones de diseño del LLM deben registrarse en `backend/docs/`.
-- El sistema funciona sin API keys pero con funcionalidad limitada (respuestas simuladas).
-
-¡Listo! Backend modular, API REST, frontend moderno con chat interactivo y asistente LLM avanzado para generar y analizar algoritmos. 🚀
+Listo: backend modular, API REST, frontend moderno con modal de análisis, chat LLM y simulador. ¿Vamos?

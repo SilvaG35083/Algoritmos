@@ -1,100 +1,56 @@
 # Configuración de LLMs
 
-Este proyecto soporta múltiples proveedores de LLM para análisis de algoritmos y corrección gramatical.
+El proyecto usa modelos de lenguaje en tres puntos:
+- `/api/llm/analyze` y `/api/llm/chat`: generación de pseudocódigo y análisis línea a línea (OpenAI o Gemini).
+- `/api/simulate`: simulación del algoritmo y retorno de un árbol de ejecución JSON (requiere Gemini).
+- Corrección gramatical opcional en `AnalysisPipeline` cuando se inyecta un `GrammarCorrector`.
 
-## Proveedores Soportados
+## Proveedores soportados
+- **OpenAI (ChatGPT)**: mayor calidad, necesita créditos.
+- **Google Gemini**: alternativa gratuita/rápida; también impulsa el simulador.
 
-- **OpenAI (ChatGPT)**: Recomendado para mejor calidad (requiere créditos)
-- **Google Gemini**: Alternativa gratuita con buena calidad (recomendado si excedes cuota de OpenAI)
+## Variables clave
+- `LLM_PROVIDER`: `openai` o `gemini` (por defecto `openai` para chat/analyze).
+- `OPENAI_API_KEY`, `OPENAI_MODEL` (ej. `gpt-4o-mini`).
+- `GEMINI_API_KEY`, `GEMINI_MODEL` (ej. `gemini-2.5-flash`).
 
-> 💡 **Tip**: Si recibes errores de cuota con OpenAI, cambia a Gemini. Ver `GEMINI_SETUP.md` para configuración rápida.
-
-## Configuración
-
-### Variables de Entorno
-
-Crea un archivo `.env` en la raíz del proyecto `backend/` o configura las variables de entorno en tu sistema:
-
-#### Para OpenAI (ChatGPT)
-```bash
-export OPENAI_API_KEY="sk-tu-api-key-aqui"
-export OPENAI_MODEL="gpt-4o-mini"  # Opcional, por defecto usa gpt-4o-mini
-export LLM_PROVIDER="openai"  # Opcional, por defecto es "openai"
+## Configuración rápida (.env en `backend/`)
+### OpenAI
+```env
+OPENAI_API_KEY=sk-tu-api-key
+OPENAI_MODEL=gpt-4o-mini
+LLM_PROVIDER=openai
 ```
 
-#### Para Google Gemini
-```bash
-export GEMINI_API_KEY="tu-api-key-aqui"
-export LLM_PROVIDER="gemini"
+### Gemini
+```env
+GEMINI_API_KEY=tu-api-key-gemini
+GEMINI_MODEL=gemini-2.5-flash   # opcional
+LLM_PROVIDER=gemini             # si quieres que chat/analyze usen Gemini
 ```
 
-### Obtener API Keys
+> La ruta `/api/simulate` siempre usa Gemini; sin `GEMINI_API_KEY` fallará.
 
-#### OpenAI
-1. Ve a https://platform.openai.com/api-keys
-2. Crea una cuenta o inicia sesión
-3. Genera una nueva API key
-4. Copia la key y configúrala en tu entorno
-
-#### Google Gemini
-1. Ve a https://makersuite.google.com/app/apikey
-2. Inicia sesión con tu cuenta de Google
-3. Genera una nueva API key
-4. Copia la key y configúrala en tu entorno
-
-## Instalación de Dependencias
-
-Las dependencias LLM son opcionales. Para instalarlas:
-
+## Dependencias
+Instala extras LLM desde `backend/`:
 ```bash
-cd backend
 pip install -e ".[llm]"
-```
-
-O instalar manualmente:
-
-```bash
-# Para OpenAI
+# o solo el proveedor que necesites:
 pip install openai>=1.0
-
-# Para Gemini
 pip install google-generativeai>=0.6
 ```
 
-## Uso
+## Comportamiento sin API key
+- `/api/llm/analyze` y `/api/llm/chat` devuelven respuestas simuladas.
+- `/api/simulate` no podrá ejecutarse.
+- La corrección gramatical no se activa a menos que inyectes un corrector y haya clave disponible.
 
-Una vez configuradas las variables de entorno, el sistema usará automáticamente el LLM para:
+## Verificación rápida
+- Gemini: `python test_gemini_models.py` para listar modelos disponibles con tu key.
+- OpenAI: prueba `curl -X POST http://localhost:8000/api/llm/analyze -d '{"query":"suma un arreglo"}' -H "Content-Type: application/json"`.
 
-1. **Corrección gramatical**: Cuando hay errores de parsing, el LLM intenta corregir el pseudocódigo
-2. **Chat interactivo**: El componente de chat permite pedir algoritmos en lenguaje natural
-3. **Análisis detallado**: El LLM genera análisis línea por línea con ecuaciones y árboles de recursión
+## Cambiar de proveedor
+- Frontend: selector en el chat (OpenAI/Gemini).
+- Backend: ajusta `LLM_PROVIDER` en `.env` y reinicia el servidor.
 
-## Sin API Key
-
-Si no configuras una API key, el sistema funcionará pero:
-- No habrá corrección gramatical automática
-- El chat mostrará respuestas simuladas
-- Los análisis detallados no estarán disponibles
-
-## Troubleshooting
-
-### Error: "openai no está instalado"
-```bash
-pip install openai
-```
-
-### Error: "google-generativeai no está instalado"
-```bash
-pip install google-generativeai
-```
-
-### Error: "No hay API key configurada"
-Verifica que hayas configurado la variable de entorno correctamente:
-```bash
-echo $OPENAI_API_KEY  # o $GEMINI_API_KEY
-```
-
-### El LLM no responde
-- Verifica que tu API key sea válida
-- Revisa que tengas créditos disponibles en tu cuenta
-- Verifica la conexión a internet
+Si hay errores de cuota, cambia a Gemini; si necesitas mayor calidad, usa OpenAI.

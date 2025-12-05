@@ -1,103 +1,64 @@
-# ⚠️ IMPORTANTE: Configuración de API Keys
+# IMPORTANTE: Configuración de API keys
 
-## 🔒 Seguridad
+## Seguridad
+- **Nunca** subas tus keys a Git.
+- Guarda las claves en `.env` (ya está en `.gitignore`) o como variables de entorno.
 
-**NUNCA** pongas tu API key directamente en archivos de código o documentación que se suban a Git.
+## Ejemplo de `.env` (backend/.env)
+```env
+# OpenAI (chat/analyze)
+OPENAI_API_KEY=sk-proj-tu-api-key
+OPENAI_MODEL=gpt-4o-mini
 
-## 📝 Cómo configurar tu API key de OpenAI
+# Gemini (chat/analyze/simulate)
+GEMINI_API_KEY=tu-api-key-gemini
+GEMINI_MODEL=gemini-2.5-flash
 
-### Opción 1: Archivo .env (Recomendado)
+# Proveedor por defecto para chat/analyze
+LLM_PROVIDER=openai
+```
 
-1. **Crea un archivo `.env` en la carpeta `backend/`**:
-   ```bash
-   cd backend
-   touch .env  # En Windows: type nul > .env
-   ```
-
-2. **Abre el archivo `.env` y agrega tu API key**:
-   ```env
-   OPENAI_API_KEY=sk-proj-tu-api-key-real-aqui
-   OPENAI_MODEL=gpt-4o-mini
-   LLM_PROVIDER=openai
-   ```
-
-3. **El archivo `.env` ya está en `.gitignore`**, así que no se subirá al repositorio.
-
-### Opción 2: Variables de entorno del sistema
-
-#### Windows (PowerShell):
+## Variables en el sistema
+### Windows (PowerShell)
 ```powershell
-$env:OPENAI_API_KEY="sk-proj-tu-api-key-aqui"
+$env:OPENAI_API_KEY="sk-proj-tu-api-key"
 $env:OPENAI_MODEL="gpt-4o-mini"
+$env:GEMINI_API_KEY="tu-api-key-gemini"
+$env:GEMINI_MODEL="gemini-2.5-flash"
 $env:LLM_PROVIDER="openai"
 ```
 
-#### Windows (CMD):
+### Windows (CMD)
 ```cmd
-set OPENAI_API_KEY=sk-proj-tu-api-key-aqui
+set OPENAI_API_KEY=sk-proj-tu-api-key
 set OPENAI_MODEL=gpt-4o-mini
+set GEMINI_API_KEY=tu-api-key-gemini
+set GEMINI_MODEL=gemini-2.5-flash
 set LLM_PROVIDER=openai
 ```
 
-#### Windows (Permanente):
-1. Busca "Variables de entorno" en el menú de inicio
-2. Click en "Variables de entorno"
-3. En "Variables de usuario", click en "Nueva"
-4. Nombre: `OPENAI_API_KEY`
-5. Valor: `sk-proj-tu-api-key-aqui`
-6. Click en "Aceptar"
-
-#### Linux/macOS:
+### Linux/macOS
 ```bash
-export OPENAI_API_KEY="sk-proj-tu-api-key-aqui"
+export OPENAI_API_KEY="sk-proj-tu-api-key"
 export OPENAI_MODEL="gpt-4o-mini"
+export GEMINI_API_KEY="tu-api-key-gemini"
+export GEMINI_MODEL="gemini-2.5-flash"
 export LLM_PROVIDER="openai"
 ```
+Para hacerlo permanente agrega las líneas a `~/.bashrc` o `~/.zshrc`.
 
-Para hacerlo permanente en Linux/macOS, agrega las líneas a `~/.bashrc` o `~/.zshrc`.
-
-### Opción 3: Cargar desde .env automáticamente
-
-Si usas `python-dotenv`, puedes cargar el archivo `.env` automáticamente:
-
-```bash
-pip install python-dotenv
-```
-
-Luego en tu código Python:
-```python
-from dotenv import load_dotenv
-load_dotenv()  # Carga variables desde .env
-```
-
-## ✅ Verificar que funciona
-
-Después de configurar, verifica que la variable esté disponible:
-
-**Windows (PowerShell):**
+## Verificar
 ```powershell
 echo $env:OPENAI_API_KEY
+echo $env:GEMINI_API_KEY
 ```
-
-**Windows (CMD):**
-```cmd
-echo %OPENAI_API_KEY%
-```
-
-**Linux/macOS:**
+o
 ```bash
 echo $OPENAI_API_KEY
+echo $GEMINI_API_KEY
 ```
 
-## 🚨 Si ya pusiste tu API key en un archivo
+## Si publicaste tu key por error
+1) Revoca la key (OpenAI/Gemini). 2) Genera una nueva. 3) Guarda solo en `.env` o variables. 4) Quita la key del repo y haz commit.
 
-Si accidentalmente pusiste tu API key en un archivo que se subió a Git:
-
-1. **Revoca la API key inmediatamente** en https://platform.openai.com/api-keys
-2. **Genera una nueva API key**
-3. **Configúrala usando uno de los métodos arriba**
-4. **Elimina la key del archivo** y haz commit
-
-## 📚 Más información
-
-Ver `LLM_SETUP.md` para más detalles sobre configuración y troubleshooting.
+Más detalles en `LLM_SETUP.md` y `GEMINI_SETUP.md`.
