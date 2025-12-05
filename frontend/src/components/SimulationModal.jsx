@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import RecursionTree from "./RecursionTree.jsx";
 import MetricsPanel from "./MetricsPanel.jsx";
+import ComplexityAnalysisPanel from "./ComplexityAnalysisPanel.jsx";
 import "./SimulationModal.css";
 
 // Función para detectar el tipo de algoritmo
@@ -150,16 +151,54 @@ export function SimulationModal({ isOpen, onClose, pseudocode, onSimulate, analy
     return algorithmTypeConfig[algorithmType] || algorithmTypeConfig.secuencial;
   }, [algorithmType]);
 
-  // Extraer la complejidad teórica del análisis estático
-  const theoreticalComplexity = useMemo(() => {
-    console.log("🔍 analysisResult completo:", analysisResult);
-    if (!analysisResult?.steps?.solution?.complexity) {
-      console.log("⚠️ No se encontró complejidad en analysisResult.steps.solution.complexity");
+  // Extraer los 3 casos del análisis estático
+  const staticAnalysisCases = useMemo(() => {
+    console.log("🔍 ANÁLISIS ESTÁTICO - analysisResult completo:", analysisResult);
+    console.log("📋 Estructura JSON completa:", JSON.stringify(analysisResult, null, 2));
+    
+    if (!analysisResult) {
+      console.log("⚠️ analysisResult es null o undefined");
       return null;
     }
-    console.log("✅ Complejidad encontrada:", analysisResult.steps.solution.complexity);
-    return analysisResult.steps.solution.complexity;
+    
+    // Verificar si tiene la estructura nueva (best_case, worst_case, average_case directamente)
+    if (analysisResult.average_case || analysisResult.best_case || analysisResult.worst_case) {
+      console.log("✅ Estructura NUEVA detectada (con best_case, worst_case, average_case)");
+      console.log("  - best_case:", analysisResult.best_case);
+      console.log("  - average_case:", analysisResult.average_case);
+      console.log("  - worst_case:", analysisResult.worst_case);
+      
+      return {
+        best: analysisResult.best_case,
+        average: analysisResult.average_case,
+        worst: analysisResult.worst_case,
+        title: analysisResult.title,
+        description: analysisResult.description
+      };
+    }
+    
+    // Verificar estructura vieja (steps.solution.complexity)
+    if (analysisResult?.steps?.solution) {
+      console.log("✅ Estructura VIEJA detectada (steps.solution)");
+      const solution = analysisResult.steps.solution;
+      
+      return {
+        best: solution.cases?.best || solution.complexity,
+        average: solution.cases?.average || solution.complexity || solution.main_result,
+        worst: solution.cases?.worst || solution.complexity,
+        title: solution.title,
+        description: solution.description
+      };
+    }
+    
+    console.log("⚠️ No se reconoció la estructura de analysisResult");
+    return null;
   }, [analysisResult]);
+
+  // Para compatibilidad con MetricsPanel (usa solo el caso promedio)
+  const theoreticalComplexity = useMemo(() => {
+    return staticAnalysisCases?.average || null;
+  }, [staticAnalysisCases]);
 
   // Extraer el valor de 'n' de los inputs
   const inputN = useMemo(() => {
@@ -255,6 +294,13 @@ export function SimulationModal({ isOpen, onClose, pseudocode, onSimulate, analy
           {/* Columna Derecha: Árbol */}
           <div className="simulation-right-panel">
             <h4>{typeConfig.treeLabel}</h4>
+            {(() => {
+              console.log("🌳 Estado del árbol:");
+              console.log("  - treeData existe:", !!treeData);
+              console.log("  - treeData:", treeData);
+              console.log("  - treeData.execution_tree:", treeData?.execution_tree);
+              return null;
+            })()}
             {treeData ? (
               <div className="tree-container">
                 <RecursionTree treeData={treeData} />
@@ -269,68 +315,152 @@ export function SimulationModal({ isOpen, onClose, pseudocode, onSimulate, analy
           </div>
         </div>
 
-        {/* Sección de Métricas y Comparación (parte inferior) */}
+{/* Sección de Métricas y Comparación (parte inferior) */}
         {treeData && (
           <div className="metrics-section">
             <div className="metrics-header">
-              <h4>Análisis de Complejidad</h4>
-              <p className="text-muted">Comparación entre análisis estático y dinámico</p>
+              <h4>Reporte de Ejecución y Análisis</h4>
+              <p className="text-muted">Comparativa entre predicción estática, ejecución real y formalización matemática.</p>
             </div>
             
             <div className="metrics-comparison">
-              {/* Análisis Estático */}
+              
+              {/* --- IZQUIERDA: Análisis Estático (Parser Clásico) --- */}
               <div className="analysis-card static-analysis">
                 <div className="card-header">
-                  <span className="badge badge-blue">Análisis Estático</span>
-                  <h5>Complejidad Teórica</h5>
+                  <span className="badge badge-blue">Parser Estático</span>
+                  <h5>Predicción Sintáctica</h5>
                 </div>
                 <div className="card-body">
-                  {theoreticalComplexity ? (
+                  {staticAnalysisCases ? (
                     <>
-                      <div className="complexity-value">{theoreticalComplexity}</div>
+                      {/* Grid de 3 casos */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
+                        {/* Mejor Caso */}
+                        <div style={{
+                          padding: '0.75rem',
+                          background: 'rgba(9, 10, 18, 0.5)',
+                          borderRadius: '6px',
+                          borderLeft: '3px solid #22c55e'
+                        }}>
+                          <div style={{ 
+                            fontSize: '0.7rem', 
+                            color: '#a1a1aa', 
+                            textTransform: 'uppercase', 
+                            fontWeight: 'bold',
+                            marginBottom: '0.25rem'
+                          }}>
+                            Mejor (Ω)
+                          </div>
+                          <div style={{ 
+                            fontSize: '1.1rem', 
+                            fontWeight: 'bold', 
+                            color: '#4ade80',
+                            fontFamily: 'monospace'
+                          }}>
+                            {staticAnalysisCases.best || "-"}
+                          </div>
+                        </div>
+
+                        {/* Promedio */}
+                        <div style={{
+                          padding: '0.75rem',
+                          background: 'rgba(9, 10, 18, 0.5)',
+                          borderRadius: '6px',
+                          borderLeft: '3px solid #3b82f6'
+                        }}>
+                          <div style={{ 
+                            fontSize: '0.7rem', 
+                            color: '#a1a1aa', 
+                            textTransform: 'uppercase', 
+                            fontWeight: 'bold',
+                            marginBottom: '0.25rem'
+                          }}>
+                            Promedio (Θ)
+                          </div>
+                          <div style={{ 
+                            fontSize: '1.1rem', 
+                            fontWeight: 'bold', 
+                            color: '#60a5fa',
+                            fontFamily: 'monospace'
+                          }}>
+                            {staticAnalysisCases.average || "-"}
+                          </div>
+                        </div>
+
+                        {/* Peor Caso */}
+                        <div style={{
+                          padding: '0.75rem',
+                          background: 'rgba(9, 10, 18, 0.5)',
+                          borderRadius: '6px',
+                          borderLeft: '3px solid #ef4444'
+                        }}>
+                          <div style={{ 
+                            fontSize: '0.7rem', 
+                            color: '#a1a1aa', 
+                            textTransform: 'uppercase', 
+                            fontWeight: 'bold',
+                            marginBottom: '0.25rem'
+                          }}>
+                            Peor (O)
+                          </div>
+                          <div style={{ 
+                            fontSize: '1.1rem', 
+                            fontWeight: 'bold', 
+                            color: '#f87171',
+                            fontFamily: 'monospace'
+                          }}>
+                            {staticAnalysisCases.worst || "-"}
+                          </div>
+                        </div>
+                      </div>
+
                       <p className="complexity-desc">
-                        Calculada mediante análisis sintáctico del pseudocódigo.
+                        {staticAnalysisCases.description || "Complejidad estimada analizando la estructura del código (bucles anidados, recursión simple)."}
                         {inputN && (
                           <span style={{ display: 'block', marginTop: '0.5rem', color: '#a1a1aa' }}>
-                            Para n={inputN}, se espera un comportamiento según esta complejidad.
+                            Para n={inputN}, se espera un comportamiento asintótico acorde a estas cotas.
                           </span>
                         )}
                       </p>
                     </>
                   ) : (
                     <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
-                      <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>⚠️</div>
-                      <p className="text-muted" style={{ marginBottom: '1rem', fontSize: '1rem', fontWeight: '600' }}>
-                        No hay análisis estático disponible
+                      <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⚠️</div>
+                      <p className="text-muted" style={{ fontSize: '0.9rem' }}>
+                        Sin análisis previo.
                       </p>
-                      <p style={{ fontSize: '0.85rem', color: '#71717a', lineHeight: '1.6' }}>
-                        Para obtener una comparación completa:
-                        <br/>
-                        1. Cierra este modal
-                        <br/>
-                        2. Haz clic en el botón <strong style={{color: '#60a5fa'}}>"Analizar"</strong> en la pantalla principal
-                        <br/>
-                        3. Luego regresa a <strong style={{color: '#4ade80'}}>"Simular"</strong>
+                      <p style={{ fontSize: '0.8rem', color: '#71717a' }}>
+                        Ejecuta el botón "Analizar" primero para comparar.
                       </p>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Análisis Dinámico */}
+              {/* --- DERECHA: Análisis Profundo (Simulación + LLM Matemático) --- */}
               <div className="analysis-card dynamic-analysis">
                 <div className="card-header">
-                  <span className="badge badge-green">Análisis Dinámico</span>
-                  <h5>Métricas Reales</h5>
+                  <span className="badge badge-green">Motor IA + Runtime</span>
+                  <h5>Simulación y Formalización</h5>
                 </div>
-                <div className="card-body">
+                <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  
+                  {/* 1. Las Métricas Reales (Conteo de pasos) */}
                   <MetricsPanel 
                     treeData={treeData} 
                     inputN={inputN}
                     theoreticalComplexity={theoreticalComplexity}
                   />
+
+                  {/* 2. El Nuevo Análisis Matemático (Teorema Maestro, etc.) */}
+                  <ComplexityAnalysisPanel 
+                    analysisData={treeData.theoretical_analysis} 
+                  />
+                  
                 </div>
               </div>
+
             </div>
           </div>
         )}

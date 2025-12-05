@@ -4,6 +4,11 @@ import './MetricsPanel.css';
 
 export default function MetricsPanel({ treeData, inputN, theoreticalComplexity }) {
   
+  console.log("📊 MetricsPanel recibió:");
+  console.log("  - treeData:", treeData);
+  console.log("  - inputN:", inputN);
+  console.log("  - theoreticalComplexity:", theoreticalComplexity);
+  
   // 1. Calculamos las métricas reales usando el JSON
   const metrics = useMemo(() => {
     if (!treeData?.execution_tree) return null;
@@ -14,7 +19,14 @@ export default function MetricsPanel({ treeData, inputN, theoreticalComplexity }
 
   // 2. Calcular complejidad esperada basada en la teórica (mejor, promedio, peor caso)
   const calculateExpectedCases = () => {
-    if (!theoreticalComplexity || !inputN) return null;
+    console.log("🧮 calculateExpectedCases llamado:");
+    console.log("  - theoreticalComplexity:", theoreticalComplexity);
+    console.log("  - inputN:", inputN);
+    
+    if (!theoreticalComplexity || !inputN) {
+      console.log("⚠️ Falta theoreticalComplexity o inputN, retornando null");
+      return null;
+    }
     
     const complexity = theoreticalComplexity.toLowerCase();
     

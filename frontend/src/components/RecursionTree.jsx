@@ -46,7 +46,7 @@ const getLayoutedElements = (nodes, edges, direction = 'TB') => {
   return { nodes: layoutedNodes, edges };
 };
 
-// --- 2. FUNCIÓN PARA APLANAR TU JSON ---
+// --- 2. FUNCIÓN PARA APLANAR JSON ---
 const parseTreeToGraph = (node, parentId = null, nodes = [], edges = []) => {
   if (!node) return;
 
